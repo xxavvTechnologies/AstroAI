@@ -1,5 +1,4 @@
 let auth0Client = null;
-// Keep isAuthenticated declaration here and make it accessible
 window.isAuthenticated = false;
 
 const configureAuth0 = async () => {
@@ -109,12 +108,31 @@ const initAuth = async () => {
 
 // Export methods for use in other files
 window.auth = {
-    init: initAuth,
+    init: async () => {
+        try {
+            await configureAuth0();
+            await updateUI();
+        } catch (err) {
+            console.error("Error initializing Auth0:", err);
+        }
+    },
     login: async () => {
         try {
-            await auth0Client.loginWithRedirect();
+            if (!auth0Client) {
+                await configureAuth0();
+            }
+            if (auth0Client) {
+                await auth0Client.loginWithRedirect();
+            } else {
+                throw new Error('Auth0 client not initialized');
+            }
         } catch (err) {
             console.error("Error logging in:", err);
+            // Display error to user
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = 'Login failed. Please try again.';
+            document.querySelector('.auth-buttons').appendChild(errorDiv);
         }
     },
     logout: async () => {
@@ -137,3 +155,6 @@ window.auth = {
     // Update isAuthenticated export to use window.isAuthenticated
     isAuthenticated: () => window.isAuthenticated
 };
+
+// Initialize immediately when script loads
+configureAuth0().catch(err => console.error("Initial Auth0 configuration failed:", err));
