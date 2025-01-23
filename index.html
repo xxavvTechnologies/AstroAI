@@ -21,35 +21,20 @@
     <meta name="terms" content="This service uses Google's Gemma model and is subject to Gemma Terms of Use">
     <meta name="license" content="Gemma Terms: ai.google.dev/gemma/terms">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Auth0 Script -->
-    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
-    <!-- App Scripts -->
-    <script src="config.js"></script>
-    <script src="notifications.js"></script>
-    <script src="authentication.js"></script>
-    <script src="app.js"></script>
+    <script src="config.js" type="module"></script>
+    <script src="notifications.js" type="module"></script>
+    <script src="app.js" type="module"></script>
 </head>
 <body>
-    <!-- Add user profile dropdown at the top -->
-    <div id="user-profile" class="user-dropdown">
-        <button id="profile-button" class="profile-button">
-            <img src="" alt="User Avatar" class="user-avatar" id="profile-avatar">
-            <span id="profile-name"></span>
-            <i class="fas fa-chevron-down"></i>
-        </button>
-        <div id="dropdown-menu" class="dropdown-menu"></div>
-    </div>
-
-    <div id="auth-modal" class="modal">
+    <div id="access-key-modal" class="modal">
         <div class="modal-content">
-            <h2>Welcome to Astro AI</h2>
-            <p>Please login to continue</p>
-            <div class="auth-buttons">
-                <button id="auth0-login" class="auth-btn login-btn">
-                    <i class="fas fa-sign-in-alt"></i>
-                    Login to Continue
-                </button>
+            <h2>Enter Access Key</h2>
+            <p>Please enter your access key to use Astro AI</p>
+            <div class="input-area" style="margin: 20px 0;">
+                <input type="password" id="access-key-input" placeholder="Enter your access key">
+                <button id="submit-access-key">Submit</button>
             </div>
+            <p class="notice">Need an access key? Contact xxavvTechnologies for access.</p>
         </div>
     </div>
 
@@ -69,7 +54,7 @@
 
                 <section>
                     <h3>Gemma Model Terms</h3>
-                    <p>This service uses Google's Gemma model and is subject to the Gemma Terms of Use.</p>
+                    <p>This service (though modified through NovaAI) uses Google's Gemma model and is subject to the Gemma Terms of Use.</p>
                     <div class="notice-box">
                         <p><strong>Notice:</strong> "Gemma is provided under and subject to the Gemma Terms of Use found at <a href="https://ai.google.dev/gemma/terms" target="_blank">ai.google.dev/gemma/terms</a>"</p>
                         <ul>
@@ -123,13 +108,6 @@
         </header>
         
         <main class="chat-container">
-            <div class="conversation-bar">
-                <select id="conversation-select" class="conversation-select">
-                    <option value="">Select a conversation</option>
-                </select>
-                <button class="new-chat-btn" id="new-chat-btn">New Chat</button>
-                <button class="delete-chat-btn" id="delete-chat-btn">Delete</button>
-            </div>
             <div id="chat-messages"></div>
             <form id="chat-form" class="input-area">
                 <input type="text" id="user-input" placeholder="Ask Astro anything..." autocomplete="off">
@@ -140,6 +118,46 @@
                 </button>
             </form>
         </main>
+    </div>
+
+    <div id="conversation-manager" class="modal conversation-manager-modal">
+        <div class="modal-content">
+            <button id="close-manager">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="manager-header">
+                <h2>Manage Conversations</h2>
+                <input type="text" class="search-conversations" placeholder="Search conversations...">
+            </div>
+            
+            <div class="conversation-list" id="conversation-list">
+                <!-- Conversations will be inserted here -->
+            </div>
+            
+            <div class="manager-actions">
+                <button class="conversation-action-btn" id="new-conversation-btn">
+                    <i class="fas fa-plus"></i> New Conversation
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add before closing body tag -->
+    <div id="context-menu" class="context-menu">
+        <div class="context-menu-item" data-action="copy">
+            <i class="fas fa-copy"></i> Copy Message
+        </div>
+        <div class="context-menu-item" data-action="quote">
+            <i class="fas fa-reply"></i> Quote & Reply
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="select">
+            <i class="fas fa-mouse-pointer"></i> Select Text
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="read">
+            <i class="fas fa-volume-up"></i> Read Aloud
+        </div>
     </div>
 </body>
 </html>

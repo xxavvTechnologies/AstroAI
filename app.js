@@ -1,32 +1,135 @@
+import { config } from './config.js';
+
 const chatMessages = document.getElementById('chat-messages');
 const chatForm = document.getElementById('chat-form');
 const userInput = document.getElementById('user-input');
 
-const SYSTEM_INSTRUCTIONS = `You are Astro AI, an advanced AI assistant created by NovaAI & xxavvTechnologies. While you have special expertise in science, technology, and astronomy, you're a versatile assistant capable of helping with any topic.
+const SYSTEM_INSTRUCTIONS = `You are Astro AI, a friendly and professional artificial intelligence assistant with a passion for space and astrology. While maintaining space-themed elements, respond naturally without forcing space references.`;
 
-Key traits:
-- Knowledgeable across all subjects
-- Creative and thoughtful in responses
-- Able to explain complex topics simply
-- Friendly and conversational
-- Honest about limitations
-- Focused on providing accurate information
+// Enhanced response filters
+const RESPONSE_FILTERS = {
+    // Remove AI self-references and metacommentary
+    removeAISelfReferences: text => {
+        return text.replace(/\b(I am an AI|As an AI|I'm an AI|let me|I can|I will|I would|I am|I'm)\b/gi, '')
+                  .replace(/\b(I think|I believe|I feel|In my opinion)\b/gi, '')
+                  .replace(/\b(I hope this helps|Let me know if|Is there anything else)\b/gi, '');
+    },
+    
+    // Clean up response structure
+    improveStructure: text => {
+        return text.replace(/^(Sure!|Okay,|Well,|Alright,|So,)\s+/i, '')
+                  .replace(/\b(basically|essentially|fundamentally)\b/gi, '')
+                  .replace(/\b(you see|you know|like|um|uh)\b/gi, '');
+    },
+    
+    // Enhance space theme naturally
+    enhanceSpaceTheme: text => {
+        const spaceEmojis = ['🌟', '🚀', '✨', '🌎', '☄️', '🌌', '🌑', '🛸'];
+        if (!spaceEmojis.some(emoji => text.includes(emoji))) {
+            // Only add emoji if it makes sense contextually
+            const spaceKeywords = ['space', 'star', 'planet', 'galaxy', 'cosmos', 'orbit'];
+            if (spaceKeywords.some(keyword => text.toLowerCase().includes(keyword))) {
+                return `${spaceEmojis[Math.floor(Math.random() * spaceEmojis.length)]} ${text}`;
+            }
+        }
+        return text;
+    },
+    
+    // Improve readability
+    improveReadability: text => {
+        return text.replace(/\s{2,}/g, ' ')           // Remove extra spaces
+                  .replace(/[.!?]+(?=[.!?])/g, '')    // Remove repeated punctuation
+                  .replace(/\b(very|really|quite)\s+/g, '') // Remove unnecessary intensifiers
+                  .trim();
+    },
+    
+    // Ensure professional tone
+    maintainProfessionalism: text => {
+        return text.replace(/\b(cool|awesome|amazing|wow|oh my|woah)\b/gi, 'great')
+                  .replace(/!{2,}/g, '!')  // Reduce multiple exclamation marks
+                  .replace(/\?{2,}/g, '?'); // Reduce multiple question marks
+    },
+    
+    // Format consistency
+    formatConsistency: text => {
+        return text.replace(/\s+([.,!?])/g, '$1')     // Fix punctuation spacing
+                  .replace(/([.,!?])(?=\w)/g, '$1 ')   // Ensure space after punctuation
+                  .replace(/\s*\n\s*/g, '\n\n');      // Standardize line breaks
+    },
 
-You can:
-- Answer questions on any topic
-- Help with analysis and problem-solving
-- Provide code examples with explanations
-- Assist with writing and editing
-- Engage in casual conversation
-- Share knowledge about space, science, and beyond
+    // Enhance definition formatting
+    formatDefinitions: text => {
+        return text.replace(/^(\w+)\n\s*: /gm, '$1\n: ');
+    },
 
-Format your responses using markdown when appropriate:
-- Use code blocks with language tags
-- Create structured lists and tables
-- Add emphasis for important points
-- Include helpful links when relevant
+    // Format warning/info/success blocks
+    formatAlertBlocks: text => {
+        return text
+            .replace(/^>(\s*⚠️[^\n]*)/gm, '<div class="warning-block">$1</div>')
+            .replace(/^>(\s*ℹ️[^\n]*)/gm, '<div class="info-block">$1</div>')
+            .replace(/^>(\s*✅[^\n]*)/gm, '<div class="success-block">$1</div>');
+    },
 
-Remember: While space and technology are your specialties, you're a general-purpose assistant ready to help with any task.`;
+    // Handle citations
+    formatCitations: text => {
+        return text.replace(/\[Source: ([^\]]+)\]/g, '<cite class="source">Source: $1</cite>');
+    },
+
+    // Clean up table formatting
+    formatTables: text => {
+        if (text.includes('|')) {
+            return text.replace(/^\s*\|/, '|').replace(/\|\s*$/, '|');
+        }
+        return text;
+    }
+};
+
+// Modified processing function to apply all filters
+function processAIResponse(text) {
+    // Apply each filter in sequence
+    const processedText = Object.values(RESPONSE_FILTERS).reduce((processed, filter) => {
+        return filter(processed);
+    }, text);
+    
+    // Additional post-processing
+    return DOMPurify.sanitize(marked.parse(processedText), {
+        ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'table', 'thead', 'tbody', 
+                      'tr', 'th', 'td', 'ul', 'ol', 'li', 'blockquote', 'h1', 'h2', 'h3', 
+                      'h4', 'hr', 'div', 'span', 'cite', 'details', 'summary'],
+        ALLOWED_ATTR: ['class', 'id']
+    });
+}
+
+// Apply the filters before displaying bot response
+function addMessage(text, sender, parseMarkdown = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message');
+    
+    // Handle sender parameter as either string or array
+    if (Array.isArray(sender)) {
+        sender.forEach(className => messageDiv.classList.add(className));
+    } else {
+        messageDiv.classList.add(`${sender}-message`);
+    }
+    
+    // Process bot messages through filters
+    if (sender === 'bot') {
+        text = processAIResponse(text);
+    }
+    
+    if (parseMarkdown && sender === 'bot') {
+        // Parse markdown and sanitize HTML
+        const htmlContent = marked.parse(text);
+        const sanitizedHtml = DOMPurify.sanitize(htmlContent);
+        messageDiv.innerHTML = sanitizedHtml;
+    } else {
+        messageDiv.textContent = text;
+    }
+    
+    chatMessages.appendChild(messageDiv);
+    scrollToBottom();
+    return messageDiv;
+}
 
 // Store conversation history
 let conversationHistory = [];
@@ -40,10 +143,23 @@ conversationHistory.push({
 const RETRY_ATTEMPTS = 3;
 const RETRY_DELAY = 1000;
 
+const VALID_ACCESS_KEYS = Object.keys(config.ACCESS_KEYS);
+
+// API key management
+let accessKey = localStorage.getItem('astroAccessKey');
+
+function checkAccessKey() {
+    if (!accessKey || !VALID_ACCESS_KEYS.includes(accessKey)) {
+        document.getElementById('access-key-modal').classList.add('active');
+        document.getElementById('app-container').style.display = 'none';
+        return false;
+    }
+    return true;
+}
+
 async function sendMessage(message, retryCount = 0) {
-    if (!window.auth.isAuthenticated()) {
-        window.notifications.error('Please login to continue', 'AUTH001');
-        document.getElementById('auth-modal').classList.add('active');
+    if (!checkAccessKey()) {
+        window.notifications.error('Valid access key required', 'ACCESS001');
         return;
     }
     
@@ -59,25 +175,42 @@ async function sendMessage(message, retryCount = 0) {
     const typingIndicator = addTypingIndicator();
     
     try {
-        // Format conversation for context
+        // Get the current conversation's full history
+        const currentConversation = conversations.find(c => c.id === currentConversationId);
+        const conversationContext = currentConversation ? currentConversation.messages : [];
+        
+        // Reset conversation history with system instructions
+        conversationHistory = [
+            {
+                role: "system",
+                content: SYSTEM_INSTRUCTIONS
+            }
+        ];
+        
+        // Add conversation context
+        conversationHistory.push(...conversationContext.map(msg => ({
+            role: msg.sender === 'user' ? 'user' : 'assistant',
+            content: msg.content
+        })));
+        
+        // Add current message
         conversationHistory.push({
             role: "user",
             content: message
         });
 
-        // Create conversation prompt
+        // Create conversation prompt with full context
         const contextPrompt = `${SYSTEM_INSTRUCTIONS}\n\nConversation:\n` + 
             conversationHistory
                 .filter(msg => msg.role !== "system")
-                .slice(-6) // Keep last 6 messages for context
                 .map(msg => `${msg.role === 'user' ? 'Human' : 'Assistant'}: ${msg.content}`)
                 .join('\n') + '\nAssistant:';
-        
+
         const response = await fetch('https://api-inference.huggingface.co/models/google/gemma-2-2b-it', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${config.HUGGING_FACE_API_KEY}`
+                'Authorization': `Bearer ${config.HUGGING_FACE_API_KEY}`  // Use the key from config
             },
             body: JSON.stringify({
                 inputs: contextPrompt,
@@ -153,31 +286,6 @@ async function sendMessage(message, retryCount = 0) {
     }
 }
 
-function addMessage(text, sender, parseMarkdown = false) {
-    const messageDiv = document.createElement('div');
-    messageDiv.classList.add('message');
-    
-    // Handle sender parameter as either string or array
-    if (Array.isArray(sender)) {
-        sender.forEach(className => messageDiv.classList.add(className));
-    } else {
-        messageDiv.classList.add(`${sender}-message`);
-    }
-    
-    if (parseMarkdown && sender === 'bot') {
-        // Parse markdown and sanitize HTML
-        const htmlContent = marked.parse(text);
-        const sanitizedHtml = DOMPurify.sanitize(htmlContent);
-        messageDiv.innerHTML = sanitizedHtml;
-    } else {
-        messageDiv.textContent = text;
-    }
-    
-    chatMessages.appendChild(messageDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    return messageDiv;
-}
-
 function addTypingIndicator() {
     const indicator = document.createElement('div');
     indicator.classList.add('message', 'bot', 'typing-indicator');
@@ -187,7 +295,7 @@ function addTypingIndicator() {
         indicator.appendChild(dot);
     }
     chatMessages.appendChild(indicator);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    scrollToBottom();
     return indicator;
 }
 
@@ -237,12 +345,16 @@ chatForm.addEventListener('submit', (e) => {
 
 // Add suggestion chips for common queries
 const SUGGESTIONS = [
-    "Tell me about black holes",
-    "Help me debug this code",
-    "Explain quantum computing",
-    "Write a creative story",
-    "Give me life advice",
-    "Teach me something new"
+    "What's the weather like today?",
+    "Tell me a joke",
+    "How do I cook pasta?",
+    "What's the capital of France?",
+    "How do I improve my resume?",
+    "What's the latest news?",
+    "How do I stay healthy?",
+    "What's the time?",
+    "Translate 'hello' to Spanish",
+    "How do I meditate?"
 ];
 
 function addSuggestions() {
@@ -263,40 +375,42 @@ function addSuggestions() {
     chatMessages.appendChild(suggestionsDiv);
 }
 
-// Update window.onload to handle auth initialization
+// Initialize app
 window.onload = async () => {
-    try {
-        // Wait for Auth0 to initialize
-        await window.auth.init();
-        
-        if (!window.auth.isAuthenticated()) {
-            document.getElementById('auth-modal').classList.add('active');
-            document.getElementById('app-container').style.display = 'none';
-            
-            // Setup login button
-            document.getElementById('auth0-login').addEventListener('click', () => {
-                window.auth.login();
-            });
-            return;
-        }
-
-        // User is authenticated, show app
-        document.getElementById('auth-modal').classList.remove('active');
+    const submitButton = document.getElementById('submit-access-key');
+    if (submitButton) {
+        submitButton.addEventListener('click', () => {
+            const inputKey = document.getElementById('access-key-input').value.trim();
+            if (inputKey && VALID_ACCESS_KEYS.includes(inputKey)) {
+                accessKey = inputKey;
+                localStorage.setItem('astroAccessKey', inputKey);
+                document.getElementById('access-key-modal').classList.remove('active');
+                document.getElementById('app-container').style.display = 'block';
+                
+                updateChatHeader();
+                addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
+                addSuggestions();
+                
+                if (conversations.length === 0) {
+                    createNewConversation();
+                }
+            } else {
+                window.notifications.error('Invalid access key', 'ACCESS002');
+            }
+        });
+    } else {
+        console.error('Access key submit button not found');
+    }
+    
+    // Check access key on load
+    if (checkAccessKey()) {
         document.getElementById('app-container').style.display = 'block';
-
-        // Initialize chat
+        updateChatHeader();
         addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
         addSuggestions();
-
         if (conversations.length === 0) {
             createNewConversation();
-        } else {
-            updateConversationSelect();
         }
-
-    } catch (err) {
-        console.error("Error initializing app:", err);
-        addMessage('Error initializing the application. Please try again.', ['bot', 'error']);
     }
 };
 
@@ -304,9 +418,6 @@ window.onload = async () => {
 const termsModal = document.getElementById('terms-modal');
 const termsCheckbox = document.getElementById('terms-checkbox');
 const acceptTermsButton = document.getElementById('accept-terms');
-const conversationSelect = document.getElementById('conversation-select');
-const newChatBtn = document.getElementById('new-chat-btn');
-const deleteChatBtn = document.getElementById('delete-chat-btn');
 
 // Check if terms were accepted
 const termsAccepted = localStorage.getItem('termsAccepted');
@@ -349,116 +460,490 @@ function createNewConversation() {
     const id = Date.now().toString();
     const conversation = {
         id,
-        title: `Conversation ${conversations.length + 1}`,
+        title: `New Conversation`,
         messages: []
     };
     conversations.push(conversation);
     currentConversationId = id;
     saveConversations();
-    updateConversationSelect();
+    updateConversationManager();
     clearChat();
     addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
     addSuggestions();
     window.notifications.success('Created new conversation', 'CONV001');
 }
 
-function saveConversations() {
-    localStorage.setItem('conversations', JSON.stringify(conversations));
-}
-
-function updateConversationSelect() {
-    conversationSelect.innerHTML = '<option value="">Select a conversation</option>';
-    conversations.forEach(conv => {
-        const option = document.createElement('option');
-        option.value = conv.id;
-        option.textContent = conv.title;
-        option.selected = conv.id === currentConversationId;
-        conversationSelect.appendChild(option);
-    });
-}
-
-function clearChat() {
-    chatMessages.innerHTML = '';
-    conversationHistory = [{ role: "system", content: SYSTEM_INSTRUCTIONS }];
-}
-
-function loadConversation(id) {
+async function suggestConversationTitle(messages) {
+    if (messages.length < 2) return null;
+    
     try {
-        const conversation = conversations.find(c => c.id === id);
-        if (!conversation) {
-            throw new Error('Conversation not found');
-        }
-        currentConversationId = id;
-        clearChat();
-        conversation.messages.forEach(msg => {
-            addMessage(msg.content, msg.sender, msg.sender === 'bot');
+        const contextMessages = messages.slice(0, 4).map(msg => ({
+            role: msg.sender,
+            content: msg.content
+        }));
+        
+        const contextStr = contextMessages
+            .map(m => `${m.role}: ${m.content}`)
+            .join('\n');
+            
+        const prompt = `Based on this conversation, suggest a clear, simple title (2-4 words, no emojis, no AI references). Focus on the main topic or question. Examples: "Weather Basics", "Resume Tips", "Python Functions", "History Questions".\n\nConversation:\n${contextStr}\n\nTitle:`;
+        
+        const response = await fetch('https://api-inference.huggingface.co/models/google/gemma-2-2b-it', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${config.HUGGING_FACE_API_KEY}`
+            },
+            body: JSON.stringify({
+                inputs: prompt,
+                parameters: {
+                    max_new_tokens: 20,
+                    temperature: 0.7,
+                    top_p: 0.95,
+                    do_sample: true,
+                    return_full_text: false
+                }
+            })
         });
-        window.notifications.info('Loaded conversation', 'CONV002');
+
+        if (!response.ok) return null;
+        
+        const data = await response.json();
+        if (!Array.isArray(data) || !data[0]?.generated_text) return null;
+        
+        let title = data[0].generated_text.trim()
+            .replace(/["']/g, '')           // Remove quotes
+            .replace(/^Title:\s*/i, '')     // Remove "Title:" prefix
+            .replace(/[^\w\s-]/g, '')       // Remove special characters and emojis
+            .replace(/\b(ai|bot|astro)\b/gi, '')  // Remove AI references
+            .split('\n')[0]                 // Take first line
+            .trim()
+            .replace(/\s+/g, ' ')           // Normalize spaces
+            .substring(0, 25);              // Limit length
+        
+        return title || null;
     } catch (error) {
-        window.notifications.error('Failed to load conversation', 'CONV003');
+        console.error('Failed to generate title:', error);
+        return null;
     }
 }
 
-// Update sendMessage function to save messages
+// Modified sendMessage wrapper to handle title suggestion better
 const originalSendMessage = sendMessage;
 sendMessage = async (message, retryCount = 0) => {
     await originalSendMessage(message, retryCount);
+    
     if (currentConversationId) {
         const conversation = conversations.find(c => c.id === currentConversationId);
         if (conversation) {
+            // Update messages
             conversation.messages = Array.from(chatMessages.children)
                 .filter(el => el.classList.contains('message'))
                 .map(el => ({
                     content: el.textContent,
-                    sender: el.classList.contains('user-message') ? 'user' : 'bot'
-                }));
+                    sender: el.classList.contains('user-message') ? 'user' : 'bot',
+                    timestamp: Date.now()
+                }))
+                .filter(msg => !msg.content.includes('typing-indicator')); // Filter out typing indicators
+            
+            // Try to suggest title after 2 exchanges (4 messages including bot responses)
+            if (conversation.title === 'New Conversation' && conversation.messages.length >= 4) {
+                const suggestedTitle = await suggestConversationTitle(conversation.messages);
+                if (suggestedTitle) {
+                    renameConversation(currentConversationId, suggestedTitle);
+                }
+            }
+            
             saveConversations();
+            updateConversationManager();
         }
     }
 };
 
-// Event listeners for conversation management
-newChatBtn.addEventListener('click', createNewConversation);
-
-deleteChatBtn.addEventListener('click', () => {
-    if (currentConversationId) {
-        conversations = conversations.filter(c => c.id !== currentConversationId);
+function renameConversation(id, newTitle) {
+    const conversation = conversations.find(c => c.id === id);
+    if (conversation) {
+        conversation.title = newTitle;
         saveConversations();
-        updateConversationSelect();
-        createNewConversation();
+        updateConversationManager();
+        window.notifications.success('Conversation renamed', 'CONV004');
     }
+}
+
+// Event listeners for conversation management
+document.getElementById('new-conversation-btn')?.addEventListener('click', () => {
+    createNewConversation();
+    updateConversationManager();
+    document.getElementById('conversation-manager').classList.remove('active');
 });
 
-conversationSelect.addEventListener('change', (e) => {
-    if (e.target.value) {
-        loadConversation(e.target.value);
-    }
+document.getElementById('close-manager')?.addEventListener('click', () => {
+    document.getElementById('conversation-manager').classList.remove('active');
 });
 
 // Initialize first conversation if none exists
 if (conversations.length === 0) {
     createNewConversation();
 } else {
-    updateConversationSelect();
+    updateConversationManager();
 }
 
-// Listen for messages from Nova login window
-window.addEventListener('message', function(event) {
-    // Verify origin
-    if (event.origin !== 'https://account.nova.xxavvgroup.com') return;
+// Replace the conversation management section with this improved version
+function saveConversations() {
+    localStorage.setItem('conversations', JSON.stringify(conversations));
+}
+
+function loadConversation(id) {
+    const conversation = conversations.find(c => c.id === id);
+    if (!conversation) return;
+
+    currentConversationId = id;
+    clearChat();
     
-    // Handle auth success
-    if (event.data.type === 'nova-auth-success') {
-        localStorage.setItem('novaToken', event.data.token);
-        isAuthenticated = true;
-        document.getElementById('auth-modal').classList.remove('active');
-        document.getElementById('app-container').style.display = 'block';
-        
-        // Initialize app
-        addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
-        addSuggestions();
-        if (conversations.length === 0) {
-            createNewConversation();
+    // Reset conversation history when loading a conversation
+    conversationHistory = [
+        {
+            role: "system",
+            content: SYSTEM_INSTRUCTIONS
         }
+    ];
+    
+    // Add all messages from the conversation to both the UI and history
+    conversation.messages.forEach(msg => {
+        addMessage(msg.content, msg.sender, msg.sender === 'bot');
+        conversationHistory.push({
+            role: msg.sender === 'user' ? 'user' : 'assistant',
+            content: msg.content
+        });
+    });
+    
+    // Force scroll to bottom without smooth animation after loading
+    scrollToBottom(false);
+    
+    document.getElementById('conversation-manager').classList.remove('active');
+    window.notifications.info('Loaded conversation', 'CONV002');
+}
+
+// Add this utility function before updateConversationManager
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")  // Fix: Changed /"//g to /"/g
+        .replace(/'/g, "&#039;");
+}
+
+function updateConversationManager() {
+    const list = document.getElementById('conversation-list');
+    list.innerHTML = conversations.map(conv => `
+        <div class="conversation-item ${conv.id === currentConversationId ? 'active' : ''}" data-id="${conv.id}">
+            <div class="conversation-info">
+                <div class="conversation-title">${escapeHtml(conv.title)}</div>
+                <div class="conversation-meta">
+                    ${conv.messages.length} messages · ${new Date(parseInt(conv.id)).toLocaleDateString()}
+                </div>
+            </div>
+            <div class="conversation-actions">
+                <button class="conversation-action-btn rename" data-id="${conv.id}">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="conversation-action-btn delete" data-id="${conv.id}" 
+                    ${conversations.length <= 1 ? 'disabled' : ''}>
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    // Add event listeners
+    list.querySelectorAll('.conversation-item').forEach(item => {
+        item.addEventListener('click', () => loadConversation(item.dataset.id));
+    });
+
+    list.querySelectorAll('.rename').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const conv = conversations.find(c => c.id === btn.dataset.id);
+            const newTitle = prompt('Enter new conversation title:', conv.title);
+            if (newTitle && newTitle.trim()) {
+                renameConversation(conv.id, newTitle.trim());
+                updateConversationManager();
+            }
+        });
+    });
+
+    list.querySelectorAll('.delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (conversations.length <= 1) return;
+            
+            if (confirm('Are you sure you want to delete this conversation?')) {
+                const index = conversations.findIndex(c => c.id === btn.dataset.id);
+                conversations = conversations.filter(c => c.id !== btn.dataset.id);
+                
+                if (btn.dataset.id === currentConversationId) {
+                    currentConversationId = conversations[Math.min(index, conversations.length - 1)].id;
+                    loadConversation(currentConversationId);
+                }
+                
+                saveConversations();
+                updateConversationManager();
+                window.notifications.info('Conversation deleted', 'CONV005');
+            }
+        });
+    });
+}
+
+// Update event listeners
+document.getElementById('close-manager')?.addEventListener('click', () => {
+    document.getElementById('conversation-manager').classList.remove('active');
+});
+
+document.getElementById('new-conversation-btn')?.addEventListener('click', () => {
+    createNewConversation();
+    updateConversationManager();
+    document.getElementById('conversation-manager').classList.remove('active');
+});
+
+// Add search functionality
+document.querySelector('.search-conversations')?.addEventListener('input', (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    document.querySelectorAll('.conversation-item').forEach(item => {
+        const title = item.querySelector('.conversation-title').textContent.toLowerCase();
+        item.style.display = title.includes(searchTerm) ? 'flex' : 'none';
+    });
+});
+
+// Load conversations on startup
+window.addEventListener('load', () => {
+    conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
+    if (conversations.length === 0) {
+        createNewConversation();
+    } else {
+        currentConversationId = conversations[0].id;
+        loadConversation(currentConversationId);
     }
 });
+
+// Add clearChat function
+function clearChat() {
+    while (chatMessages.firstChild) {
+        chatMessages.removeChild(chatMessages.firstChild);
+    }
+}
+
+// Replace the conversation bar markup with a single manager button
+function updateChatHeader() {
+    const existingBar = document.querySelector('.conversation-bar');
+    if (existingBar) existingBar.remove();
+    
+    const managerBtn = document.createElement('button');
+    managerBtn.className = 'conversation-manager-btn';
+    managerBtn.innerHTML = '<i class="fas fa-bars"></i> Conversations';
+    managerBtn.addEventListener('click', () => {
+        document.getElementById('conversation-manager').classList.add('active');
+        updateConversationManager();
+    });
+    
+    chatMessages.parentElement.insertBefore(managerBtn, chatMessages);
+}
+
+// Update the initialization code
+window.onload = async () => {
+    const submitButton = document.getElementById('submit-access-key');
+    if (submitButton) {
+        submitButton.addEventListener('click', () => {
+            const inputKey = document.getElementById('access-key-input').value.trim();
+            if (inputKey && VALID_ACCESS_KEYS.includes(inputKey)) {
+                accessKey = inputKey;
+                localStorage.setItem('astroAccessKey', inputKey);
+                document.getElementById('access-key-modal').classList.remove('active');
+                document.getElementById('app-container').style.display = 'block';
+                
+                updateChatHeader();
+                addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
+                addSuggestions();
+                
+                if (conversations.length === 0) {
+                    createNewConversation();
+                }
+            } else {
+                window.notifications.error('Invalid access key', 'ACCESS002');
+            }
+        });
+    }
+    
+    if (checkAccessKey()) {
+        document.getElementById('app-container').style.display = 'block';
+        updateChatHeader();
+        
+        conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
+        if (conversations.length === 0) {
+            createNewConversation();
+        } else {
+            currentConversationId = conversations[0].id;
+            loadConversation(currentConversationId);
+        }
+        
+        addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
+        addSuggestions();
+    }
+};
+
+// Remove old conversation select event listeners
+// ...existing code...
+
+// Context Menu Implementation
+const contextMenu = document.getElementById('context-menu');
+let activeMessage = null;
+
+document.addEventListener('contextmenu', (e) => {
+    const messageElement = e.target.closest('.message');
+    if (messageElement) {
+        e.preventDefault();
+        activeMessage = messageElement;
+        showContextMenu(e.clientX, e.clientY);
+    }
+});
+
+document.addEventListener('click', () => {
+    hideContextMenu();
+});
+
+function showContextMenu(x, y) {
+    contextMenu.style.left = `${x}px`;
+    contextMenu.style.top = `${y}px`;
+    
+    // Adjust position if menu goes outside viewport
+    const rect = contextMenu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+        contextMenu.style.left = `${window.innerWidth - rect.width - 5}px`;
+    }
+    if (rect.bottom > window.innerHeight) {
+        contextMenu.style.top = `${window.innerHeight - rect.height - 5}px`;
+    }
+    
+    contextMenu.classList.add('active');
+}
+
+function hideContextMenu() {
+    contextMenu.classList.remove('active');
+    activeMessage = null;
+}
+
+// Context Menu Actions
+document.querySelectorAll('.context-menu-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const action = item.dataset.action;
+        
+        if (activeMessage) {
+            switch (action) {
+                case 'copy':
+                    copyMessageContent(activeMessage);
+                    break;
+                case 'quote':
+                    quoteMessage(activeMessage);
+                    break;
+                case 'select':
+                    selectMessageText(activeMessage);
+                    break;
+                case 'read':
+                    readMessageAloud(activeMessage);
+                    break;
+            }
+        }
+        
+        hideContextMenu();
+    });
+});
+
+function copyMessageContent(messageElement) {
+    const content = messageElement.innerText;
+    navigator.clipboard.writeText(content).then(() => {
+        window.notifications.success('Message copied to clipboard', 'COPY001');
+    }).catch(() => {
+        window.notifications.error('Failed to copy message', 'COPY002');
+    });
+}
+
+function quoteMessage(messageElement) {
+    if (!messageElement.classList.contains('bot-message')) return;
+    
+    const content = messageElement.innerText;
+    const quotedText = content.length > 150 ? content.substring(0, 150) + '...' : content;
+    
+    const quoteWrapper = document.createElement('div');
+    quoteWrapper.classList.add('quote-content');
+    quoteWrapper.textContent = quotedText;
+    
+    userInput.focus();
+    userInput.value = '';
+    
+    const lastMessage = chatMessages.lastElementChild;
+    if (lastMessage && lastMessage.classList.contains('suggestions')) {
+        lastMessage.remove();
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message', 'user-message', 'quote-reference');
+    messageDiv.appendChild(quoteWrapper);
+    chatMessages.appendChild(messageDiv);
+    
+    messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    messageElement.classList.add('highlighted');
+    setTimeout(() => messageElement.classList.remove('highlighted'), 2000);
+}
+
+function selectMessageText(messageElement) {
+    const range = document.createRange();
+    range.selectNodeContents(messageElement);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+function readMessageAloud(messageElement) {
+    const text = messageElement.innerText;
+    
+    // Check if speech synthesis is supported
+    if (!window.speechSynthesis) {
+        window.notifications.error('Text-to-speech not supported in this browser', 'TTS001');
+        return;
+    }
+    
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    
+    utterance.onstart = () => {
+        messageElement.style.opacity = '0.7';
+        window.notifications.info('Reading message...', 'TTS002');
+    };
+    
+    utterance.onend = () => {
+        messageElement.style.opacity = '1';
+    };
+    
+    utterance.onerror = () => {
+        messageElement.style.opacity = '1';
+        window.notifications.error('Failed to read message', 'TTS003');
+    };
+    
+    window.speechSynthesis.speak(utterance);
+}
+
+// Add this helper function after the other utility functions
+function scrollToBottom(smooth = true) {
+    const scrollOptions = {
+        top: chatMessages.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+    };
+    chatMessages.scrollTo(scrollOptions);
+}
+
+// ...rest of existing code...
