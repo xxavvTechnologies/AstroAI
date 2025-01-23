@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@gradio/client": "^1.10.0"
   }
 }

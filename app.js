@@ -4,24 +4,10 @@ const chatMessages = document.getElementById('chat-messages');
 const chatForm = document.getElementById('chat-form');
 const userInput = document.getElementById('user-input');
 
-const SYSTEM_INSTRUCTIONS = `You are Astro AI, a friendly and professional artificial intelligence assistant with a passion for space and astrology. While maintaining space-themed elements, respond naturally without forcing space references.`;
+const SYSTEM_INSTRUCTIONS = ``;
 
 // Enhanced response filters
 const RESPONSE_FILTERS = {
-    // Remove AI self-references and metacommentary
-    removeAISelfReferences: text => {
-        return text.replace(/\b(I am an AI|As an AI|I'm an AI|let me|I can|I will|I would|I am|I'm)\b/gi, '')
-                  .replace(/\b(I think|I believe|I feel|In my opinion)\b/gi, '')
-                  .replace(/\b(I hope this helps|Let me know if|Is there anything else)\b/gi, '');
-    },
-    
-    // Clean up response structure
-    improveStructure: text => {
-        return text.replace(/^(Sure!|Okay,|Well,|Alright,|So,)\s+/i, '')
-                  .replace(/\b(basically|essentially|fundamentally)\b/gi, '')
-                  .replace(/\b(you see|you know|like|um|uh)\b/gi, '');
-    },
-    
     // Enhance space theme naturally
     enhanceSpaceTheme: text => {
         const spaceEmojis = ['🌟', '🚀', '✨', '🌎', '☄️', '🌌', '🌑', '🛸'];
