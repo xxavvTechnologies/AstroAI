@@ -3,6 +3,11 @@ window.isAuthenticated = false;
 
 const configureAuth0 = async () => {
     try {
+        // Wait for config to be available
+        if (!window.config) {
+            throw new Error('Config not initialized');
+        }
+
         auth0Client = await window.auth0.createAuth0Client({
             domain: config.AUTH0_DOMAIN,
             clientId: config.AUTH0_CLIENT_ID,
@@ -109,12 +114,23 @@ const initAuth = async () => {
 // Export methods for use in other files
 window.auth = {
     init: async () => {
-        try {
-            await configureAuth0();
-            await updateUI();
-        } catch (err) {
-            console.error("Error initializing Auth0:", err);
+        let retries = 3;
+        while (retries > 0) {
+            try {
+                await configureAuth0();
+                if (auth0Client) {
+                    await updateUI();
+                    return true;
+                }
+            } catch (err) {
+                console.error("Auth initialization attempt failed:", err);
+                retries--;
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
         }
+        throw new Error('Failed to initialize Auth0 after multiple attempts');
     },
     login: async () => {
         try {
