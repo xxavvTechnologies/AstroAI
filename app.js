@@ -42,10 +42,15 @@ const RETRY_DELAY = 1000;
 
 async function sendMessage(message, retryCount = 0) {
     if (!window.auth.isAuthenticated()) {
+        window.notifications.error('Please login to continue', 'AUTH001');
         document.getElementById('auth-modal').classList.add('active');
         return;
     }
-    if (!message.trim()) return;
+    
+    if (!message.trim()) {
+        window.notifications.warning('Please enter a message', 'INPUT001');
+        return;
+    }
     
     addMessage(message, 'user');
     userInput.value = '';
@@ -88,7 +93,13 @@ async function sendMessage(message, retryCount = 0) {
         });
 
         if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
+            const errorCodes = {
+                401: 'API001',
+                429: 'API002',
+                500: 'API003',
+                503: 'API004'
+            };
+            throw new Error(`API error: ${response.status}|${errorCodes[response.status] || 'API000'}`);
         }
 
         const data = await response.json();
@@ -123,11 +134,18 @@ async function sendMessage(message, retryCount = 0) {
         console.error('Error:', error);
         typingIndicator.remove();
         
+        const [errorMessage, errorCode] = error.message.split('|');
+        
         if (retryCount < RETRY_ATTEMPTS && isRetryableError(error)) {
+            window.notifications.warning('Retrying request...', 'RETRY001');
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
             return sendMessage(message, retryCount + 1);
         }
         
+        window.notifications.error(
+            'Failed to get response. Please try again.',
+            errorCode || 'ERR000'
+        );
         addMessage('Sorry, I encountered an error. Please try again.', ['bot', 'error']);
     } finally {
         userInput.disabled = false;
@@ -341,6 +359,7 @@ function createNewConversation() {
     clearChat();
     addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
     addSuggestions();
+    window.notifications.success('Created new conversation', 'CONV001');
 }
 
 function saveConversations() {
@@ -364,13 +383,19 @@ function clearChat() {
 }
 
 function loadConversation(id) {
-    const conversation = conversations.find(c => c.id === id);
-    if (conversation) {
+    try {
+        const conversation = conversations.find(c => c.id === id);
+        if (!conversation) {
+            throw new Error('Conversation not found');
+        }
         currentConversationId = id;
         clearChat();
         conversation.messages.forEach(msg => {
             addMessage(msg.content, msg.sender, msg.sender === 'bot');
         });
+        window.notifications.info('Loaded conversation', 'CONV002');
+    } catch (error) {
+        window.notifications.error('Failed to load conversation', 'CONV003');
     }
 }
 

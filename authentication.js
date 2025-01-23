@@ -1,13 +1,55 @@
-let auth0 = null;
+let auth0Client = null;
+
+window.auth = {
+    isAuthenticated: false,
+    user: null,
+
+    async init() {
+        try {
+            auth0Client = await createAuth0Client({
+                domain: config.AUTH0_DOMAIN,
+                client_id: config.AUTH0_CLIENT_ID,
+                redirect_uri: config.AUTH0_CALLBACK_URL,
+                useRefreshTokens: true,
+                cacheLocation: "localstorage"
+            });
+
+            if (window.location.search.includes("code=") || window.location.search.includes("state=")) {
+                await auth0Client.handleRedirectCallback();
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            this.isAuthenticated = await auth0Client.isAuthenticated();
+            this.user = this.isAuthenticated ? await auth0Client.getUser() : null;
+
+            return this.isAuthenticated;
+        } catch (error) {
+            console.error("Error initializing Auth0 client:", error);
+        }
+    },
+
+    async login() {
+        await auth0Client.loginWithRedirect();
+    },
+
+    async logout() {
+        auth0Client.logout({
+            returnTo: window.location.origin
+        });
+    },
+
+    getUser() {
+        return this.user;
+    },
+
+    isAuthenticated() {
+        return this.isAuthenticated;
+    }
+};
 
 window.onload = async () => {
     // Initialize Auth0 client
-    await configureAuth0();
-
-    // Handle the redirect if returning from login
-    if (window.location.search.includes("code=") || window.location.search.includes("state=")) {
-        await handleAuthRedirect();
-    }
+    await window.auth.init();
 
     // Update the UI
     await updateUI();
@@ -17,35 +59,15 @@ window.onload = async () => {
     profileButton.addEventListener("click", toggleDropdown);
 };
 
-const configureAuth0 = async () => {
-    auth0 = await createAuth0Client({
-        domain: "auth.novawerks.xxavvgroup.com",
-        client_id: "RGfDMp59V4UhqLIBZYwVZqHQwKly3lQ3",
-        redirect_uri: window.location.origin,
-        useRefreshTokens: true,
-        cacheLocation: "localstorage"
-    });
-};
-
-const handleAuthRedirect = async () => {
-    try {
-        // Process the redirect callback and remove query parameters
-        await auth0.handleRedirectCallback();
-        window.history.replaceState({}, document.title, window.location.pathname);
-    } catch (error) {
-        console.error("Error handling Auth0 redirect:", error);
-    }
-};
-
 const updateUI = async () => {
-    const isAuthenticated = await auth0.isAuthenticated();
+    const isAuthenticated = window.auth.isAuthenticated;
     const dropdownMenu = document.getElementById("dropdown-menu");
 
     // Clear and rebuild dropdown menu
     dropdownMenu.innerHTML = "";
 
     if (isAuthenticated) {
-        const user = await auth0.getUser();
+        const user = window.auth.getUser();
 
         // Add user-specific options
         dropdownMenu.innerHTML += `
@@ -58,7 +80,7 @@ const updateUI = async () => {
         dropdownMenu.innerHTML += `
             <a href="https://account.nova.xxavvgroup.com" class="nova-app-link">Your Account</a>
             <a href="https://search.nova.xxavvgroup.com" class="nova-app-link">Nova Search</a>
-            <a href="https://app2.nova.xxavvgroup.com" class="nova-app-link">Nova App</a>`;
+            <a href="https://docs.nova.xxavvgroup.com" class="nova-app-link">Nova Docs</a>`;
 
         dropdownMenu.innerHTML += `
             <a href="#" id="logout" class="logout-link">
@@ -66,7 +88,7 @@ const updateUI = async () => {
             </a>`;
 
         document.getElementById("logout").addEventListener("click", () => {
-            auth0.logout({ returnTo: window.location.origin });
+            window.auth.logout();
         });
     } else {
         // Add login option if not authenticated
@@ -76,10 +98,11 @@ const updateUI = async () => {
             </a>`;
 
         document.getElementById("login").addEventListener("click", async () => {
-            await auth0.loginWithRedirect();
+            await window.auth.login();
         });
     }
 };
+
 const toggleDropdown = () => {
     const dropdownMenu = document.getElementById("dropdown-menu");
     dropdownMenu.style.display = dropdownMenu.style.display === "block" ? "none" : "block";

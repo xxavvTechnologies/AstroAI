@@ -869,3 +869,78 @@ button:hover svg {
     font-size: 0.9rem;
     margin-top: 1rem;
 }
+
+/* Notification System */
+#notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.notification {
+    min-width: 300px;
+    max-width: 450px;
+    padding: 15px;
+    border-radius: 8px;
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    transform: translateX(120%);
+    transition: transform 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.notification.show {
+    transform: translateX(0);
+}
+
+.notification .code {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.notification p {
+    margin: 0;
+    flex-grow: 1;
+}
+
+.notification .close-btn {
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    padding: 0 5px;
+    font-size: 1.2em;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.notification .close-btn:hover {
+    opacity: 1;
+}
+
+.notification.error {
+    border-left: 4px solid #ff4444;
+}
+
+.notification.success {
+    border-left: 4px solid #00c851;
+}
+
+.notification.warning {
+    border-left: 4px solid #ffbb33;
+}
+
+.notification.info {
+    border-left: 4px solid #33b5e5;
+}
