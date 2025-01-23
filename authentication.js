@@ -1,39 +1,36 @@
-let auth0Client = null;
-window.isAuthenticated = false;
+let auth0 = null;
+
+window.onload = async () => {
+    // Initialize Auth0 client
+    await configureAuth0();
+
+    // Handle the redirect if returning from login
+    if (window.location.search.includes("code=") || window.location.search.includes("state=")) {
+        await handleAuthRedirect();
+    }
+
+    // Update the UI
+    await updateUI();
+
+    // Attach event listener to the profile button
+    const profileButton = document.getElementById("profile-button");
+    profileButton.addEventListener("click", toggleDropdown);
+};
 
 const configureAuth0 = async () => {
-    try {
-        // Wait for config to be available
-        if (!window.config) {
-            throw new Error('Config not initialized');
-        }
-
-        auth0Client = await window.auth0.createAuth0Client({
-            domain: config.AUTH0_DOMAIN,
-            clientId: config.AUTH0_CLIENT_ID,
-            authorizationParams: {
-                redirect_uri: config.AUTH0_CALLBACK_URL
-            },
-            cacheLocation: 'localstorage'
-        });
-
-        // Handle callback
-        if (window.location.search.includes("code=")) {
-            await handleAuthRedirect();
-        }
-
-        window.isAuthenticated = await auth0Client.isAuthenticated();
-        return window.isAuthenticated;
-    } catch (err) {
-        console.error("Error configuring Auth0:", err);
-        return false;
-    }
+    auth0 = await createAuth0Client({
+        domain: "auth.novawerks.xxavvgroup.com",
+        client_id: "RGfDMp59V4UhqLIBZYwVZqHQwKly3lQ3",
+        redirect_uri: window.location.origin,
+        useRefreshTokens: true,
+        cacheLocation: "localstorage"
+    });
 };
 
 const handleAuthRedirect = async () => {
     try {
         // Process the redirect callback and remove query parameters
-        await auth0Client.handleRedirectCallback();
+        await auth0.handleRedirectCallback();
         window.history.replaceState({}, document.title, window.location.pathname);
     } catch (error) {
         console.error("Error handling Auth0 redirect:", error);
@@ -41,136 +38,57 @@ const handleAuthRedirect = async () => {
 };
 
 const updateUI = async () => {
-    try {
-        const isAuthenticated = await auth0Client.isAuthenticated();
-        const profileButton = document.getElementById('profile-button');
-        const profileAvatar = document.getElementById('profile-avatar');
-        const profileName = document.getElementById('profile-name');
-        const dropdownMenu = document.getElementById('dropdown-menu');
-        const userProfile = document.getElementById('user-profile');
+    const isAuthenticated = await auth0.isAuthenticated();
+    const dropdownMenu = document.getElementById("dropdown-menu");
 
-        if (isAuthenticated) {
-            const user = await auth0Client.getUser();
-            
-            // Update profile button
-            profileAvatar.src = user.picture || 'https://upload.wikimedia.org/wikipedia/commons/4/41/Default-avatar%E5%BE%97%E5%BE%97.png?20240324104624';
-            profileName.textContent = user.name || 'User';
-            userProfile.style.display = 'block';
+    // Clear and rebuild dropdown menu
+    dropdownMenu.innerHTML = "";
 
-            // Update dropdown menu
-            dropdownMenu.innerHTML = `
-                <a href="#" class="user-welcome">
-                    <img src="${user.picture || 'https://upload.wikimedia.org/wikipedia/commons/4/41/Default-avatar%E5%BE%97%E5%BE%97.png?20240324104624'}" alt="User Avatar" class="user-avatar">
-                    Welcome, ${user.name || "User"}
-                </a>
-                <a href="#" id="logout" class="logout-link">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>`;
+    if (isAuthenticated) {
+        const user = await auth0.getUser();
 
-            // Add logout handler
-            document.getElementById('logout').addEventListener('click', () => {
-                auth0Client.logout({ returnTo: window.location.origin });
-            });
-        } else {
-            userProfile.style.display = 'none';
-        }
-    } catch (err) {
-        console.error('Error updating UI:', err);
-    }
-};
+        // Add user-specific options
+        dropdownMenu.innerHTML += `
+            <a href="#" class="user-welcome">
+                <img src="${user.picture || 'https://upload.wikimedia.org/wikipedia/commons/4/41/Default-avatar%E5%BE%97%E5%BE%97.png?20240324104624'}" alt="User Avatar" class="user-avatar">
+                Welcome, ${user.name || "User"}
+            </a>`;
+        
+        // Add Nova App links with Font Awesome icons
+        dropdownMenu.innerHTML += `
+            <a href="https://account.nova.xxavvgroup.com" class="nova-app-link">Your Account</a>
+            <a href="https://search.nova.xxavvgroup.com" class="nova-app-link">Nova Search</a>
+            <a href="https://app2.nova.xxavvgroup.com" class="nova-app-link">Nova App</a>`;
 
-const toggleDropdown = () => {
-    const dropdownMenu = document.getElementById('dropdown-menu');
-    if (dropdownMenu) {
-        dropdownMenu.style.display = dropdownMenu.style.display === 'block' ? 'none' : 'block';
-    }
-};
+        dropdownMenu.innerHTML += `
+            <a href="#" id="logout" class="logout-link">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>`;
 
-// Update window event listeners
-document.addEventListener('DOMContentLoaded', () => {
-    const profileButton = document.getElementById('profile-button');
-    if (profileButton) {
-        profileButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleDropdown();
+        document.getElementById("logout").addEventListener("click", () => {
+            auth0.logout({ returnTo: window.location.origin });
+        });
+    } else {
+        // Add login option if not authenticated
+        dropdownMenu.innerHTML += `
+            <a href="#" id="login" class="login-link">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </a>`;
+
+        document.getElementById("login").addEventListener("click", async () => {
+            await auth0.loginWithRedirect();
         });
     }
+};
+const toggleDropdown = () => {
+    const dropdownMenu = document.getElementById("dropdown-menu");
+    dropdownMenu.style.display = dropdownMenu.style.display === "block" ? "none" : "block";
+};
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (event) => {
-        const dropdown = document.getElementById('dropdown-menu');
-        const userProfile = document.getElementById('user-profile');
-        if (dropdown && userProfile && !userProfile.contains(event.target)) {
-            dropdown.style.display = 'none';
-        }
-    });
+// Close dropdown when clicking outside
+window.addEventListener("click", (event) => {
+    if (!event.target.closest(".user-dropdown")) {
+        const dropdownMenu = document.getElementById("dropdown-menu");
+        dropdownMenu.style.display = "none";
+    }
 });
-
-const initAuth = async () => {
-    await configureAuth0();
-    await updateUI();
-};
-
-// Export methods for use in other files
-window.auth = {
-    init: async () => {
-        let retries = 3;
-        while (retries > 0) {
-            try {
-                await configureAuth0();
-                if (auth0Client) {
-                    await updateUI();
-                    return true;
-                }
-            } catch (err) {
-                console.error("Auth initialization attempt failed:", err);
-                retries--;
-                if (retries > 0) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-            }
-        }
-        throw new Error('Failed to initialize Auth0 after multiple attempts');
-    },
-    login: async () => {
-        try {
-            if (!auth0Client) {
-                await configureAuth0();
-            }
-            if (auth0Client) {
-                await auth0Client.loginWithRedirect();
-            } else {
-                throw new Error('Auth0 client not initialized');
-            }
-        } catch (err) {
-            console.error("Error logging in:", err);
-            // Display error to user
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'error-message';
-            errorDiv.textContent = 'Login failed. Please try again.';
-            document.querySelector('.auth-buttons').appendChild(errorDiv);
-        }
-    },
-    logout: async () => {
-        try {
-            await auth0Client.logout({
-                returnTo: window.location.origin
-            });
-        } catch (err) {
-            console.error("Error logging out:", err);
-        }
-    },
-    getUser: async () => {
-        try {
-            return await auth0Client.getUser();
-        } catch (err) {
-            console.error("Error getting user:", err);
-            return null;
-        }
-    },
-    // Update isAuthenticated export to use window.isAuthenticated
-    isAuthenticated: () => window.isAuthenticated
-};
-
-// Initialize immediately when script loads
-configureAuth0().catch(err => console.error("Initial Auth0 configuration failed:", err));
