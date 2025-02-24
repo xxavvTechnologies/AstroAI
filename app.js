@@ -143,15 +143,15 @@ function checkAccessKey() {
     return true;
 }
 
+const API_CONFIG = {
+    BASE_URL: 'https://api.textsynth.com/v1/engines',
+    ENGINE: 'llama3.1_8B_instruct',
+    MAX_TOKENS: 800,
+    TEMPERATURE: 0.7
+};
+
 async function sendMessage(message, retryCount = 0) {
     if (!checkAccessKey()) {
-        window.notifications.error('Valid access key required', 'ACCESS001');
-        return;
-    }
-    
-    if (!message.trim()) {
-        window.notifications.warning('Please enter a message', 'INPUT001');
-        return;
     }
     
     addMessage(message, 'user');
@@ -161,53 +161,25 @@ async function sendMessage(message, retryCount = 0) {
     const typingIndicator = addTypingIndicator();
     
     try {
-        // Get the current conversation's full history
+        // Get the current conversation's messages
         const currentConversation = conversations.find(c => c.id === currentConversationId);
         const conversationContext = currentConversation ? currentConversation.messages : [];
         
-        // Reset conversation history with system instructions
-        conversationHistory = [
-            {
-                role: "system",
-                content: SYSTEM_INSTRUCTIONS
-            }
-        ];
-        
-        // Add conversation context
-        conversationHistory.push(...conversationContext.map(msg => ({
-            role: msg.sender === 'user' ? 'user' : 'assistant',
-            content: msg.content
-        })));
-        
-        // Add current message
-        conversationHistory.push({
-            role: "user",
-            content: message
-        });
+        // Format messages for TextSynth API
+        const messages = conversationContext.map(msg => msg.content);
+        messages.push(message);
 
-        // Create conversation prompt with full context
-        const contextPrompt = `${SYSTEM_INSTRUCTIONS}\n\nConversation:\n` + 
-            conversationHistory
-                .filter(msg => msg.role !== "system")
-                .map(msg => `${msg.role === 'user' ? 'Human' : 'Assistant'}: ${msg.content}`)
-                .join('\n') + '\nAssistant:';
-
-        const response = await fetch('https://api-inference.huggingface.co/models/google/gemma-2-2b-it', {
+        const response = await fetch('https://api.textsynth.com/v1/engines/llama3.1_8B_instruct/chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${config.HUGGING_FACE_API_KEY}`  // Use the key from config
+                'Authorization': `Bearer ${config.TEXTSYNTH_API_KEY}`  // Update config.js to include this
             },
             body: JSON.stringify({
-                inputs: contextPrompt,
-                parameters: {
-                    max_new_tokens: 800, // Increased from 250
-                    temperature: 0.7,
-                    top_p: 0.95,
-                    do_sample: true,
-                    return_full_text: false,
-                    repetition_penalty: 1.2
-                }
+                messages: messages,
+                system: SYSTEM_INSTRUCTIONS,  // Optional system prompt
+                temperature: 0.7,
+                max_tokens: 800
             })
         });
 
@@ -224,9 +196,8 @@ async function sendMessage(message, retryCount = 0) {
         const data = await response.json();
         typingIndicator.remove();
         
-        let botResponse;
-        if (Array.isArray(data) && data[0] && typeof data[0].generated_text === 'string') {
-            botResponse = data[0].generated_text.trim();
+        if (data.text) {
+            const botResponse = data.text.trim();
             
             if (botResponse.length < 1) {
                 throw new Error('Empty response');
@@ -237,17 +208,17 @@ async function sendMessage(message, retryCount = 0) {
                 role: "assistant",
                 content: botResponse
             });
+            
+            addMessage(botResponse, 'bot', true);
+            
+            // Highlight code blocks
+            setTimeout(() => {
+                Prism.highlightAllUnder(messageDiv);
+                addCopyButtons();
+            }, 100);
         } else {
             throw new Error('Unexpected response format');
         }
-        
-        addMessage(botResponse, 'bot', true);
-        
-        // Highlight code blocks
-        setTimeout(() => {
-            Prism.highlightAllUnder(messageDiv);
-            addCopyButtons();
-        }, 100);
         
     } catch (error) {
         console.error('Error:', error);
@@ -464,7 +435,7 @@ async function suggestConversationTitle(messages) {
     
     try {
         const contextMessages = messages.slice(0, 4).map(msg => ({
-            role: msg.sender,
+            role: msg.sender === 'user' ? 'user' : 'assistant',
             content: msg.content
         }));
         
@@ -473,31 +444,30 @@ async function suggestConversationTitle(messages) {
             .join('\n');
             
         const prompt = `Based on this conversation, suggest a clear, simple title (2-4 words, no emojis, no AI references). Focus on the main topic or question. Examples: "Weather Basics", "Resume Tips", "Python Functions", "History Questions".\n\nConversation:\n${contextStr}\n\nTitle:`;
-        
-        const response = await fetch('https://api-inference.huggingface.co/models/google/gemma-2-2b-it', {
+
+        const response = await fetch('https://api.textsynth.com/v1/engines/llama3.1_8B_instruct/chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${config.HUGGING_FACE_API_KEY}`
+                'Authorization': `Bearer ${config.TEXTSYNTH_API_KEY}`
             },
             body: JSON.stringify({
-                inputs: prompt,
-                parameters: {
-                    max_new_tokens: 20,
-                    temperature: 0.7,
-                    top_p: 0.95,
-                    do_sample: true,
-                    return_full_text: false
-                }
+                messages: [{
+                    role: 'user',
+                    content: prompt
+                }],
+                system: SYSTEM_INSTRUCTIONS,
+                temperature: 0.7,
+                max_tokens: 20
             })
         });
 
         if (!response.ok) return null;
         
         const data = await response.json();
-        if (!Array.isArray(data) || !data[0]?.generated_text) return null;
+        if (!data.text) return null;
         
-        let title = data[0].generated_text.trim()
+        let title = data.text.trim()
             .replace(/["']/g, '')           // Remove quotes
             .replace(/^Title:\s*/i, '')     // Remove "Title:" prefix
             .replace(/[^\w\s-]/g, '')       // Remove special characters and emojis
