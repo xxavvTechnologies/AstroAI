@@ -1,7 +1,8 @@
 export const config = {
-    TEXTSYNTH_API_KEY: 'e29dbcab594a69ef62a3289b83b702dd',
+    NLP_CLOUD_MODEL: 'finetuned-llama-3-70b',
+    NLP_CLOUD_TOKEN: '8c066055d1036fe83e7748c722a7fbfaf518e9ef',
     ACCESS_KEYS: {
-        'ASTRO-DEV-2024': {
+        'ASTRO-DEV-2025': {
             type: 'development',
             permissions: ['all']
         },

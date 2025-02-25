@@ -117,14 +117,15 @@ function addMessage(text, sender, parseMarkdown = false) {
     return messageDiv;
 }
 
-// Store conversation history
-let conversationHistory = [];
+// Store conversation history in NLPCloud format
+let conversationHistory = [
+    {
+        input: "Hello",
+        response: "Hi there! I'm Astro AI. How can I help you today?"
+    }
+];
 
-// Initialize with system instructions
-conversationHistory.push({
-    role: "system",
-    content: SYSTEM_INSTRUCTIONS
-});
+const SYSTEM_CONTEXT = 'This is a discussion between a human and an AI assistant. The AI is called Astro and is helpful, friendly, and knowledgeable.';
 
 const RETRY_ATTEMPTS = 3;
 const RETRY_DELAY = 1000;
@@ -143,16 +144,8 @@ function checkAccessKey() {
     return true;
 }
 
-const API_CONFIG = {
-    BASE_URL: 'https://api.textsynth.com/v1/engines',
-    ENGINE: 'llama3.1_8B_instruct',
-    MAX_TOKENS: 800,
-    TEMPERATURE: 0.7
-};
-
 async function sendMessage(message, retryCount = 0) {
-    if (!checkAccessKey()) {
-    }
+    if (!checkAccessKey()) return;
     
     addMessage(message, 'user');
     userInput.value = '';
@@ -161,58 +154,33 @@ async function sendMessage(message, retryCount = 0) {
     const typingIndicator = addTypingIndicator();
     
     try {
-        // Get the current conversation's messages
-        const currentConversation = conversations.find(c => c.id === currentConversationId);
-        const conversationContext = currentConversation ? currentConversation.messages : [];
-        
-        // Format messages for TextSynth API
-        const messages = conversationContext.map(msg => msg.content);
-        messages.push(message);
-
-        const response = await fetch('/.netlify/functions/textsynth-proxy', {
-            method: 'POST',
+        const response = await client.chatbot({
+            input: message,
+            context: SYSTEM_CONTEXT,
+            history: conversationHistory
+        }, {
             headers: {
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                messages: messages,
-                system: SYSTEM_INSTRUCTIONS,
-                temperature: 0.7,
-                max_tokens: 800
-            })
+            }
         });
 
-        if (!response.ok) {
-            const errorCodes = {
-                401: 'API001',
-                429: 'API002',
-                500: 'API003',
-                503: 'API004'
-            };
-            throw new Error(`API error: ${response.status}|${errorCodes[response.status] || 'API000'}`);
-        }
-
-        const data = await response.json();
         typingIndicator.remove();
         
-        if (data.text) {
-            const botResponse = data.text.trim();
+        if (response.response) {
+            const botResponse = response.response.trim();
             
             if (botResponse.length < 1) {
                 throw new Error('Empty response');
             }
 
-            // Add bot response to history
-            conversationHistory.push({
-                role: "assistant",
-                content: botResponse
-            });
+            // Update conversation history with NLPCloud format
+            conversationHistory = response.history;
             
             addMessage(botResponse, 'bot', true);
             
             // Highlight code blocks
             setTimeout(() => {
-                Prism.highlightAllUnder(messageDiv);
+                Prism.highlightAllUnder(chatMessages);
                 addCopyButtons();
             }, 100);
         } else {
@@ -223,8 +191,6 @@ async function sendMessage(message, retryCount = 0) {
         console.error('Error:', error);
         typingIndicator.remove();
         
-        const [errorMessage, errorCode] = error.message.split('|');
-        
         if (retryCount < RETRY_ATTEMPTS && isRetryableError(error)) {
             window.notifications.warning('Retrying request...', 'RETRY001');
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
@@ -233,7 +199,7 @@ async function sendMessage(message, retryCount = 0) {
         
         window.notifications.error(
             'Failed to get response. Please try again.',
-            errorCode || 'ERR000'
+            error.response?.status ? `API${error.response.status}` : 'ERR000'
         );
         addMessage('Sorry, I encountered an error. Please try again.', ['bot', 'error']);
     } finally {
@@ -548,6 +514,7 @@ function saveConversations() {
     localStorage.setItem('conversations', JSON.stringify(conversations));
 }
 
+// Update loadConversation to handle NLPCloud format
 function loadConversation(id) {
     const conversation = conversations.find(c => c.id === id);
     if (!conversation) return;
@@ -555,24 +522,22 @@ function loadConversation(id) {
     currentConversationId = id;
     clearChat();
     
-    // Reset conversation history when loading a conversation
-    conversationHistory = [
-        {
-            role: "system",
-            content: SYSTEM_INSTRUCTIONS
+    // Reset conversation history to NLPCloud format
+    conversationHistory = conversation.messages.reduce((history, msg, i, arr) => {
+        if (msg.sender === 'user' && i + 1 < arr.length && arr[i + 1].sender === 'bot') {
+            history.push({
+                input: msg.content,
+                response: arr[i + 1].content
+            });
         }
-    ];
+        return history;
+    }, []);
     
-    // Add all messages from the conversation to both the UI and history
+    // Add messages to UI
     conversation.messages.forEach(msg => {
         addMessage(msg.content, msg.sender, msg.sender === 'bot');
-        conversationHistory.push({
-            role: msg.sender === 'user' ? 'user' : 'assistant',
-            content: msg.content
-        });
     });
     
-    // Force scroll to bottom without smooth animation after loading
     scrollToBottom(false);
     
     document.getElementById('conversation-manager').classList.remove('active');
