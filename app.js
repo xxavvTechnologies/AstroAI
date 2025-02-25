@@ -4,8 +4,6 @@ const chatMessages = document.getElementById('chat-messages');
 const chatForm = document.getElementById('chat-form');
 const userInput = document.getElementById('user-input');
 
-const SYSTEM_INSTRUCTIONS = ``;
-
 // Enhanced response filters
 const RESPONSE_FILTERS = {
     // Enhance space theme naturally
@@ -175,34 +173,18 @@ async function sendMessage(message, retryCount = 0) {
         
         if (data.response) {
             const botResponse = data.response.trim();
+            addMessage(botResponse, 'bot', true);
             
-            if (botResponse.length < 1) {
-                throw new Error('Empty response');
-            }
-
-            // Update conversation history in NLPCloud format
+            // Update conversation history
             conversationHistory.push({
                 input: message,
                 response: botResponse
             });
-
-            addMessage(botResponse, 'bot', true);
             
             setTimeout(() => {
                 Prism.highlightAllUnder(chatMessages);
                 addCopyButtons();
             }, 100);
-
-            // Try to suggest title if needed
-            if (currentConversationId) {
-                const conversation = conversations.find(c => c.id === currentConversationId);
-                if (conversation && conversation.title === 'New Conversation' && conversation.messages.length >= 4) {
-                    const suggestedTitle = await suggestConversationTitle(conversation.messages);
-                    if (suggestedTitle) {
-                        renameConversation(currentConversationId, suggestedTitle);
-                    }
-                }
-            }
         } else {
             throw new Error('Unexpected response format');
         }
