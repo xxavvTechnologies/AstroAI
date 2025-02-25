@@ -3,6 +3,7 @@ import { config } from './config.js';
 const chatMessages = document.getElementById('chat-messages');
 const chatForm = document.getElementById('chat-form');
 const userInput = document.getElementById('user-input');
+const client = new NLPCloudClient('finetuned-llama-3-70b', '8c066055d1036fe83e7748c722a7fbfaf518e9ef', true);
 
 const SYSTEM_INSTRUCTIONS = ``;
 
@@ -158,10 +159,6 @@ async function sendMessage(message, retryCount = 0) {
             input: message,
             context: SYSTEM_CONTEXT,
             history: conversationHistory
-        }, {
-            headers: {
-                'Content-Type': 'application/json'
-            }
         });
 
         typingIndicator.remove();
@@ -173,12 +170,9 @@ async function sendMessage(message, retryCount = 0) {
                 throw new Error('Empty response');
             }
 
-            // Update conversation history with NLPCloud format
             conversationHistory = response.history;
-            
             addMessage(botResponse, 'bot', true);
             
-            // Highlight code blocks
             setTimeout(() => {
                 Prism.highlightAllUnder(chatMessages);
                 addCopyButtons();
