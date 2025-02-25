@@ -155,23 +155,34 @@ async function sendMessage(message, retryCount = 0) {
     const typingIndicator = addTypingIndicator();
     
     try {
-        const response = await client.chatbot({
-            input: message,
-            context: SYSTEM_CONTEXT,
-            history: conversationHistory
+        const response = await fetch('/.netlify/functions/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: message,
+                context: SYSTEM_CONTEXT,
+                history: conversationHistory
+            })
         });
 
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+
+        const data = await response.json();
         typingIndicator.remove();
         
-        if (response.response) {
-            const botResponse = response.response.trim();
-            
-            if (botResponse.length < 1) {
-                throw new Error('Empty response');
-            }
-
-            conversationHistory = response.history;
+        if (data.response) {
+            const botResponse = data.response.trim();
             addMessage(botResponse, 'bot', true);
+            
+            // Update conversation history
+            conversationHistory.push({
+                input: message,
+                response: botResponse
+            });
             
             setTimeout(() => {
                 Prism.highlightAllUnder(chatMessages);
