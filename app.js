@@ -175,18 +175,34 @@ async function sendMessage(message, retryCount = 0) {
         
         if (data.response) {
             const botResponse = data.response.trim();
-            addMessage(botResponse, 'bot', true);
             
-            // Update conversation history
+            if (botResponse.length < 1) {
+                throw new Error('Empty response');
+            }
+
+            // Update conversation history in NLPCloud format
             conversationHistory.push({
                 input: message,
                 response: botResponse
             });
+
+            addMessage(botResponse, 'bot', true);
             
             setTimeout(() => {
                 Prism.highlightAllUnder(chatMessages);
                 addCopyButtons();
             }, 100);
+
+            // Try to suggest title if needed
+            if (currentConversationId) {
+                const conversation = conversations.find(c => c.id === currentConversationId);
+                if (conversation && conversation.title === 'New Conversation' && conversation.messages.length >= 4) {
+                    const suggestedTitle = await suggestConversationTitle(conversation.messages);
+                    if (suggestedTitle) {
+                        renameConversation(currentConversationId, suggestedTitle);
+                    }
+                }
+            }
         } else {
             throw new Error('Unexpected response format');
         }
@@ -404,39 +420,32 @@ async function suggestConversationTitle(messages) {
     
     try {
         const contextMessages = messages.slice(0, 4).map(msg => ({
-            role: msg.sender === 'user' ? 'user' : 'assistant',
-            content: msg.content
-        }));
+            input: msg.sender === 'user' ? msg.content : '',
+            response: msg.sender === 'bot' ? msg.content : ''
+        })).filter(msg => msg.input || msg.response);
         
-        const contextStr = contextMessages
-            .map(m => `${m.role}: ${m.content}`)
-            .join('\n');
-            
-        const prompt = `Based on this conversation, suggest a clear, simple title (2-4 words, no emojis, no AI references). Focus on the main topic or question. Examples: "Weather Basics", "Resume Tips", "Python Functions", "History Questions".\n\nConversation:\n${contextStr}\n\nTitle:`;
+        const prompt = `Based on this conversation, suggest a clear, simple title (2-4 words, no emojis, no AI references). Focus on the main topic or question. Examples: "Weather Basics", "Resume Tips", "Python Functions", "History Questions".\n\nConversation:\n${contextMessages.map(m => `${m.input || m.response}`).join('\n')}\n\nTitle:`;
 
-        const response = await fetch('https://api.textsynth.com/v1/engines/llama3.1_8B_instruct/chat', {
+        const response = await fetch('/.netlify/functions/chat', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${config.TEXTSYNTH_API_KEY}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                messages: [{
-                    role: 'user',
-                    content: prompt
-                }],
-                system: SYSTEM_INSTRUCTIONS,
-                temperature: 0.7,
-                max_tokens: 20
+                message: prompt,
+                context: 'You are a helpful AI that generates short, concise titles for conversations.',
+                history: []
             })
         });
 
-        if (!response.ok) return null;
-        
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+
         const data = await response.json();
-        if (!data.text) return null;
+        if (!data.response) return null;
         
-        let title = data.text.trim()
+        let title = data.response.trim()
             .replace(/["']/g, '')           // Remove quotes
             .replace(/^Title:\s*/i, '')     // Remove "Title:" prefix
             .replace(/[^\w\s-]/g, '')       // Remove special characters and emojis
