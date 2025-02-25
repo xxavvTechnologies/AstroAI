@@ -169,15 +169,14 @@ async function sendMessage(message, retryCount = 0) {
         const messages = conversationContext.map(msg => msg.content);
         messages.push(message);
 
-        const response = await fetch('https://api.textsynth.com/v1/engines/llama3.1_8B_instruct/chat', {
+        const response = await fetch('/.netlify/functions/textsynth-proxy', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${config.TEXTSYNTH_API_KEY}`  // Update config.js to include this
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 messages: messages,
-                system: SYSTEM_INSTRUCTIONS,  // Optional system prompt
+                system: SYSTEM_INSTRUCTIONS,
                 temperature: 0.7,
                 max_tokens: 800
             })
