@@ -2,7 +2,25 @@
   functions = "netlify/functions"
   publish = "."
 
+[dev]
+  port = 8888
+  publish = "."
+  functions = "netlify/functions"
+  targetPort = 3000
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+  force = true
+
+[[headers]]
+  for = "/context/*"
+  [headers.values]
+    Content-Type = "text/plain"
+    Access-Control-Allow-Origin = "*"

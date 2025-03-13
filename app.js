@@ -123,7 +123,19 @@ let conversationHistory = [
     }
 ];
 
-const SYSTEM_CONTEXT = 'This is a discussion between a human and an AI assistant. The AI is called Astro and is helpful, friendly, and knowledgeable.';
+let SYSTEM_CONTEXT = 'Loading system context...';
+
+async function loadSystemContext() {
+    try {
+        const response = await fetch('/context/system.txt');
+        if (!response.ok) throw new Error('Failed to load system context');
+        SYSTEM_CONTEXT = await response.text();
+    } catch (error) {
+        console.error('Error loading system context:', error);
+        // Fallback to a basic context if loading fails
+        SYSTEM_CONTEXT = 'You are Astro AI, a helpful and friendly AI assistant.';
+    }
+}
 
 const RETRY_ATTEMPTS = 3;
 const RETRY_DELAY = 1000;
@@ -142,8 +154,108 @@ function checkAccessKey() {
     return true;
 }
 
+// Add after API key management section
+let userTokens = {
+    remaining: 0,
+    lastRefresh: 0,
+    limit: 0
+};
+
+function shouldRefreshTokens() {
+    if (!userTokens.lastRefresh) return true;
+    
+    const now = Date.now();
+    const nextRefresh = userTokens.lastRefresh + (config.TOKEN_LIMITS[config.ACCESS_KEYS[accessKey].type].refreshHours * 3600000);
+    
+    // Check if it's time for a refresh and user isn't at zero tokens
+    if (now >= nextRefresh && userTokens.remaining > 0) {
+        return true;
+    }
+    
+    // Also refresh if tokens are low but refresh time is close (within 5 minutes)
+    const timeToRefresh = nextRefresh - now;
+    if (userTokens.remaining < userTokens.limit * 0.1 && timeToRefresh < 300000) {
+        return true;
+    }
+    
+    return false;
+}
+
+function initializeTokens() {
+    const storedTokens = localStorage.getItem('astroTokens');
+    
+    if (storedTokens) {
+        userTokens = JSON.parse(storedTokens);
+        if (shouldRefreshTokens()) {
+            refreshTokens();
+        }
+    } else {
+        refreshTokens();
+    }
+    updateTokenDisplay();
+}
+
+function saveTokens() {
+    localStorage.setItem('astroTokens', JSON.stringify(userTokens));
+}
+
+function updateTokenDisplay() {
+    const tokenBar = document.querySelector('.token-progress');
+    const tokenCount = document.querySelector('.token-count');
+    const tokenRefresh = document.querySelector('.token-refresh');
+    
+    const percentage = (userTokens.remaining / userTokens.limit) * 100;
+    tokenBar.style.width = `${percentage}%`;
+    tokenCount.textContent = `${userTokens.remaining.toLocaleString()} tokens remaining`;
+    
+    const now = Date.now();
+    const nextRefresh = userTokens.lastRefresh + (config.TOKEN_LIMITS[config.ACCESS_KEYS[accessKey].type].refreshHours * 3600000);
+    
+    if (now >= nextRefresh) {
+        refreshTokens();
+    } else {
+        const timeLeftMs = nextRefresh - now;
+        const minutesLeft = Math.max(1, Math.ceil(timeLeftMs / 60000));
+        tokenRefresh.textContent = `Refreshes in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}`;
+    }
+}
+
+function refreshTokens() {
+    const userType = config.ACCESS_KEYS[accessKey].type;
+    const limits = config.TOKEN_LIMITS[userType];
+    userTokens = {
+        remaining: limits.tokens,
+        lastRefresh: Date.now(),
+        limit: limits.tokens
+    };
+    saveTokens();
+    updateTokenDisplay();
+    window.notifications.success('Token limit refreshed!', 'TOKEN001');
+}
+
+function checkTokens(messageLength) {
+    const estimatedTokens = Math.ceil(messageLength * 1.5); // Rough estimate
+    if (userTokens.remaining < estimatedTokens) {
+        const nextRefresh = userTokens.lastRefresh + (config.TOKEN_LIMITS[config.ACCESS_KEYS[accessKey].type].refreshHours * 3600000);
+        const timeLeft = Math.ceil((nextRefresh - Date.now()) / 60000);
+        window.notifications.error(
+            `Token limit reached. Please wait ${timeLeft} minutes for refresh.`,
+            'TOKEN002'
+        );
+        return false;
+    }
+    return true;
+}
+
 async function sendMessage(message, retryCount = 0) {
     if (!checkAccessKey()) return;
+    if (!checkTokens(message.length)) return;
+    
+    // Deduct tokens for the message
+    const estimatedTokens = Math.ceil(message.length * 1.5);
+    userTokens.remaining -= estimatedTokens;
+    saveTokens();
+    updateTokenDisplay();
     
     addMessage(message, 'user');
     userInput.value = '';
@@ -152,7 +264,11 @@ async function sendMessage(message, retryCount = 0) {
     const typingIndicator = addTypingIndicator();
     
     try {
-        const response = await fetch('/.netlify/functions/chat', {
+        const apiUrl = window.location.hostname === 'localhost' 
+            ? 'http://localhost:8888/.netlify/functions/chat'
+            : '/.netlify/functions/chat';
+
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -165,7 +281,8 @@ async function sendMessage(message, retryCount = 0) {
         });
 
         if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
+            const errorBody = await response.text();
+            throw new Error(`API error: ${response.status}\n${errorBody}`);
         }
 
         const data = await response.json();
@@ -193,15 +310,24 @@ async function sendMessage(message, retryCount = 0) {
         console.error('Error:', error);
         typingIndicator.remove();
         
+        // Return tokens on error
+        userTokens.remaining += estimatedTokens;
+        saveTokens();
+        updateTokenDisplay();
+        
         if (retryCount < RETRY_ATTEMPTS && isRetryableError(error)) {
             window.notifications.warning('Retrying request...', 'RETRY001');
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
             return sendMessage(message, retryCount + 1);
         }
         
+        const errorCode = error.message.includes('404') ? 'API404' :
+                         error.message.includes('500') ? 'API500' :
+                         'ERR000';
+        
         window.notifications.error(
             'Failed to get response. Please try again.',
-            error.response?.status ? `API${error.response.status}` : 'ERR000'
+            errorCode
         );
         addMessage('Sorry, I encountered an error. Please try again.', ['bot', 'error']);
     } finally {
@@ -301,6 +427,7 @@ function addSuggestions() {
 
 // Initialize app
 window.onload = async () => {
+    await loadSystemContext();
     const submitButton = document.getElementById('submit-access-key');
     if (submitButton) {
         submitButton.addEventListener('click', () => {
@@ -322,19 +449,23 @@ window.onload = async () => {
                 window.notifications.error('Invalid access key', 'ACCESS002');
             }
         });
-    } else {
-        console.error('Access key submit button not found');
     }
     
-    // Check access key on load
     if (checkAccessKey()) {
+        initializeTokens(); // Move this to the top
         document.getElementById('app-container').style.display = 'block';
         updateChatHeader();
-        addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
-        addSuggestions();
+        
+        conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
         if (conversations.length === 0) {
             createNewConversation();
+        } else {
+            currentConversationId = conversations[0].id;
+            loadConversation(currentConversationId);
         }
+        
+        addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
+        addSuggestions();
     }
 };
 
@@ -408,7 +539,11 @@ async function suggestConversationTitle(messages) {
         
         const prompt = `Based on this conversation, suggest a clear, simple title (2-4 words, no emojis, no AI references). Focus on the main topic or question. Examples: "Weather Basics", "Resume Tips", "Python Functions", "History Questions".\n\nConversation:\n${contextMessages.map(m => `${m.input || m.response}`).join('\n')}\n\nTitle:`;
 
-        const response = await fetch('/.netlify/functions/chat', {
+        const apiUrl = window.location.hostname === 'localhost' 
+            ? 'http://localhost:8888/.netlify/functions/chat'
+            : '/.netlify/functions/chat';
+
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -421,7 +556,8 @@ async function suggestConversationTitle(messages) {
         });
 
         if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
+            const errorBody = await response.text();
+            throw new Error(`API error: ${response.status}\n${errorBody}`);
         }
 
         const data = await response.json();
@@ -666,6 +802,7 @@ function updateChatHeader() {
 
 // Update the initialization code
 window.onload = async () => {
+    await loadSystemContext();
     const submitButton = document.getElementById('submit-access-key');
     if (submitButton) {
         submitButton.addEventListener('click', () => {
@@ -690,6 +827,7 @@ window.onload = async () => {
     }
     
     if (checkAccessKey()) {
+        initializeTokens(); // Move this to the top
         document.getElementById('app-container').style.display = 'block';
         updateChatHeader();
         
@@ -860,5 +998,13 @@ function scrollToBottom(smooth = true) {
     };
     chatMessages.scrollTo(scrollOptions);
 }
+
+// Set up token refresh check interval
+const TOKEN_CHECK_INTERVAL = 30000; // Check every 30 seconds
+setInterval(() => {
+    if (checkAccessKey()) {
+        updateTokenDisplay();
+    }
+}, TOKEN_CHECK_INTERVAL);
 
 // ...rest of existing code...

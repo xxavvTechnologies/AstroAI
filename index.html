@@ -18,8 +18,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-jsx.min.js"></script>
-    <meta name="terms" content="This service uses Google's Gemma model and is subject to Gemma Terms of Use">
-    <meta name="license" content="Gemma Terms: ai.google.dev/gemma/terms">
+    <meta name="terms" content="This service uses NLPCloud's fine-tuned LLaMA model for processing">
+    <meta name="license" content="Service Terms: Contact xxavvTechnologies for details">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="config.js" type="module"></script>
     <script src="notifications.js" type="module"></script>
@@ -48,21 +48,19 @@
                     <ul>
                         <li>This is a development project by xxavvTechnologies</li>
                         <li>We collect and store conversation data to improve our service</li>
+                        <li>Token usage limits apply to all accounts</li>
                         <li>Please use the service responsibly and ethically</li>
                     </ul>
                 </section>
 
                 <section>
-                    <h3>Gemma Model Terms</h3>
-                    <p>This service (though modified through NovaAI) uses Google's Gemma model and is subject to the Gemma Terms of Use.</p>
-                    <div class="notice-box">
-                        <p><strong>Notice:</strong> "Gemma is provided under and subject to the Gemma Terms of Use found at <a href="https://ai.google.dev/gemma/terms" target="_blank">ai.google.dev/gemma/terms</a>"</p>
-                        <ul>
-                            <li>This implementation uses the Gemma model via Hugging Face's API</li>
-                            <li>Any modifications are for integration purposes only</li>
-                            <li>The full terms are available at the link above</li>
-                        </ul>
-                    </div>
+                    <h3>Usage Limits</h3>
+                    <p>To ensure fair usage, token limits apply:</p>
+                    <ul>
+                        <li>Token limits refresh every 1.5 hours</li>
+                        <li>Different account types have different limits</li>
+                        <li>You'll be notified when approaching your limit</li>
+                    </ul>
                 </section>
 
                 <section>
@@ -104,6 +102,13 @@
         <header>
             <div class="logo">
                 <h1>Astro</h1>
+            </div>
+            <div class="token-status">
+                <div class="token-bar">
+                    <div class="token-progress"></div>
+                </div>
+                <span class="token-count"></span>
+                <span class="token-refresh"></span>
             </div>
         </header>
         
