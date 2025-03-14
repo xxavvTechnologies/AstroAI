@@ -2,13 +2,13 @@ export const config = {
     NLP_CLOUD_MODEL: 'finetuned-llama-3-70b',
     NLP_CLOUD_TOKEN: '8c066055d1036fe83e7748c722a7fbfaf518e9ef',
     TOKEN_LIMITS: {
-        'development': { tokens: 50000, refreshHours: 1.5 },
-        'admin': { tokens: 50000, refreshHours: 1.5 },
-        'moderator': { tokens: 40000, refreshHours: 1.5 },
-        'premium': { tokens: 30000, refreshHours: 1.5 },
-        'basic': { tokens: 20000, refreshHours: 1.5 },
-        'trial': { tokens: 10000, refreshHours: 1.5 },
-        'beta': { tokens: 25000, refreshHours: 1.5 }
+        'development': { tokens: 25000, refreshHours: 4 },
+        'admin': { tokens: 20000, refreshHours: 4 },
+        'moderator': { tokens: 15000, refreshHours: 4 },
+        'premium': { tokens: 12000, refreshHours: 4 },
+        'basic': { tokens: 8000, refreshHours: 4 },
+        'trial': { tokens: 5000, refreshHours: 4 },
+        'beta': { tokens: 10000, refreshHours: 4 }
     },
     ACCESS_KEYS: {
         'ASTRO-DEV-2025': {

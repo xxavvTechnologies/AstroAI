@@ -4,6 +4,31 @@ const chatMessages = document.getElementById('chat-messages');
 const chatForm = document.getElementById('chat-form');
 const userInput = document.getElementById('user-input');
 
+const MAX_CHARS = 1000;
+
+// Add after userInput declaration
+const charCounter = document.createElement('div');
+charCounter.className = 'char-limit';
+document.querySelector('.input-area').appendChild(charCounter);
+
+userInput.addEventListener('input', () => {
+    const remaining = MAX_CHARS - userInput.value.length;
+    charCounter.textContent = `${remaining} characters remaining`;
+    
+    if (remaining <= 50) {
+        charCounter.classList.add('near-limit');
+    } else {
+        charCounter.classList.remove('near-limit');
+    }
+    
+    if (remaining <= 0) {
+        charCounter.classList.add('at-limit');
+        userInput.value = userInput.value.slice(0, MAX_CHARS);
+    } else {
+        charCounter.classList.remove('at-limit');
+    }
+});
+
 // Enhanced response filters
 const RESPONSE_FILTERS = {
     // Enhance space theme naturally
@@ -202,21 +227,17 @@ function saveTokens() {
 function updateTokenDisplay() {
     const tokenBar = document.querySelector('.token-progress');
     const tokenCount = document.querySelector('.token-count');
-    const tokenRefresh = document.querySelector('.token-refresh');
     
     const percentage = (userTokens.remaining / userTokens.limit) * 100;
     tokenBar.style.width = `${percentage}%`;
     tokenCount.textContent = `${userTokens.remaining.toLocaleString()} tokens remaining`;
     
+    // Remove refresh timer display logic
     const now = Date.now();
     const nextRefresh = userTokens.lastRefresh + (config.TOKEN_LIMITS[config.ACCESS_KEYS[accessKey].type].refreshHours * 3600000);
     
     if (now >= nextRefresh) {
         refreshTokens();
-    } else {
-        const timeLeftMs = nextRefresh - now;
-        const minutesLeft = Math.max(1, Math.ceil(timeLeftMs / 60000));
-        tokenRefresh.textContent = `Refreshes in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}`;
     }
 }
 
@@ -276,7 +297,8 @@ async function sendMessage(message, retryCount = 0) {
             body: JSON.stringify({
                 message: message,
                 context: SYSTEM_CONTEXT,
-                history: conversationHistory
+                history: conversationHistory,
+                maxTokens: 4000 // Increase max output tokens
             })
         });
 
@@ -388,8 +410,13 @@ marked.setOptions({
 chatForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const message = userInput.value.trim();
-    if (message) {
+    if (message && message.length <= MAX_CHARS) {
         sendMessage(message);
+    } else if (message.length > MAX_CHARS) {
+        window.notifications.warning(
+            `Message exceeds ${MAX_CHARS} character limit`, 
+            'MSG001'
+        );
     }
 });
 
@@ -510,23 +537,6 @@ acknowledgeDevNoticeBtn.addEventListener('click', () => {
 // Conversation management
 let conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
 let currentConversationId = null;
-
-function createNewConversation() {
-    const id = Date.now().toString();
-    const conversation = {
-        id,
-        title: `New Conversation`,
-        messages: []
-    };
-    conversations.push(conversation);
-    currentConversationId = id;
-    saveConversations();
-    updateConversationManager();
-    clearChat();
-    addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
-    addSuggestions();
-    window.notifications.success('Created new conversation', 'CONV001');
-}
 
 async function suggestConversationTitle(messages) {
     if (messages.length < 2) return null;
@@ -652,6 +662,7 @@ function loadConversation(id) {
 
     currentConversationId = id;
     clearChat();
+    showChatInterface();
     
     // Reset conversation history to NLPCloud format
     conversationHistory = conversation.messages.reduce((history, msg, i, arr) => {
@@ -681,7 +692,7 @@ function escapeHtml(unsafe) {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")  // Fix: Changed /"//g to /"/g
+        .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
 
@@ -1008,3 +1019,104 @@ setInterval(() => {
 }, TOKEN_CHECK_INTERVAL);
 
 // ...rest of existing code...
+
+function showWelcomeScreen() {
+    document.getElementById('welcome-screen').style.display = 'flex';
+    document.querySelector('.chat-container').style.display = 'none';
+}
+
+function showChatInterface() {
+    document.getElementById('welcome-screen').style.display = 'none';
+    document.querySelector('.chat-container').style.display = 'flex';
+    
+    // Add event listener to conversation manager button
+    document.querySelector('.conversation-manager-btn').addEventListener('click', () => {
+        document.getElementById('conversation-manager').classList.add('active');
+        updateConversationManager();
+    });
+}
+
+// Update window.onload
+window.onload = async () => {
+    await loadSystemContext();
+    const submitButton = document.getElementById('submit-access-key');
+    if (submitButton) {
+        submitButton.addEventListener('click', () => {
+            const inputKey = document.getElementById('access-key-input').value.trim();
+            if (inputKey && VALID_ACCESS_KEYS.includes(inputKey)) {
+                accessKey = inputKey;
+                localStorage.setItem('astroAccessKey', inputKey);
+                document.getElementById('access-key-modal').classList.remove('active');
+                document.getElementById('app-container').style.display = 'block';
+                
+                initializeTokens();
+                showWelcomeScreen();
+            } else {
+                window.notifications.error('Invalid access key', 'ACCESS002');
+            }
+        });
+    }
+    
+    if (checkAccessKey()) {
+        initializeTokens();
+        document.getElementById('app-container').style.display = 'block';
+        showWelcomeScreen();
+    }
+
+    // Add welcome screen button listeners
+    document.getElementById('create-first-chat')?.addEventListener('click', () => {
+        createNewConversation();
+        showChatInterface();
+    });
+
+    document.getElementById('open-manager-welcome')?.addEventListener('click', () => {
+        document.getElementById('conversation-manager').classList.add('active');
+        updateConversationManager();
+    });
+};
+
+// Add before event listeners for conversation management
+function createNewConversation() {
+    const newConversation = {
+        id: Date.now().toString(),
+        title: 'New Conversation',
+        messages: [],
+        created: Date.now(),
+        lastModified: Date.now()
+    };
+    
+    conversations.unshift(newConversation);
+    currentConversationId = newConversation.id;
+    
+    clearChat();
+    showChatInterface();
+    saveConversations();
+    
+    // Add welcome message to new conversation
+    addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
+    addSuggestions();
+    
+    window.notifications.success('New conversation created', 'CONV001');
+    return newConversation;
+}
+
+// Event listeners for conversation management
+document.getElementById('new-conversation-btn')?.addEventListener('click', () => {
+    createNewConversation();
+    updateConversationManager();
+    document.getElementById('conversation-manager').classList.remove('active');
+});
+
+document.getElementById('close-manager')?.addEventListener('click', () => {
+    document.getElementById('conversation-manager').classList.remove('active');
+});
+
+// Initialize first conversation if none exists
+if (conversations.length === 0) {
+    createNewConversation();
+} else {
+    updateConversationManager();
+}
+
+
+
