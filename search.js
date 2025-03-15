@@ -5,36 +5,20 @@ const SEARCH_PROVIDERS = {
 
 export async function safeSearch(query, maxResults = 3) {
     try {
-        const apiUrl = window.location.hostname === 'localhost' 
-            ? 'http://localhost:8888/.netlify/functions/search'
-            : '/.netlify/functions/search';
-
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ query, maxResults })
-        });
-
-        if (!response.ok) {
-            throw new Error(`Search failed with status ${response.status}`);
-        }
-
-        const results = await response.json();
-        return results;
-
+        // Use DuckDuckGo's API for safer, more private searches
+        const response = await fetch(`${SEARCH_PROVIDERS.ddg}/?q=${encodeURIComponent(query)}&format=json`);
+        const data = await response.json();
+        
+        // Filter and limit results
+        return data.RelatedTopics
+            .slice(0, maxResults)
+            .map(topic => ({
+                title: topic.Text?.split(' - ')[0] || '',
+                snippet: topic.Text || '',
+                url: topic.FirstURL || ''
+            }));
     } catch (error) {
         console.error('Search error:', error);
         return [];
     }
-}
-
-// Add a new utility function to process search results
-export function processSearchContext(results) {
-    if (!results || results.length === 0) return '';
-    
-    return results
-        .map(r => `[Search Result: ${r.title}]\n${r.snippet}\nSource: ${r.url}\n`)
-        .join('\n');
 }
