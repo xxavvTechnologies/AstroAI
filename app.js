@@ -718,16 +718,6 @@ function loadConversation(id) {
     window.notifications.info('Loaded conversation', 'CONV002');
 }
 
-// Fix escapeHtml function
-function escapeHtml(unsafe) {
-    return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
 // Add this utility function before updateConversationManager
 function escapeHtml(unsafe) {
     return unsafe
