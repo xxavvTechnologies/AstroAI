@@ -1,4 +1,5 @@
 import { config } from './config.js';
+import { safeSearch } from './search.js';
 
 const chatMessages = document.getElementById('chat-messages');
 const chatForm = document.getElementById('chat-form');
@@ -26,6 +27,20 @@ userInput.addEventListener('input', () => {
         userInput.value = userInput.value.slice(0, MAX_CHARS);
     } else {
         charCounter.classList.remove('at-limit');
+    }
+});
+
+// Add after userInput declaration
+const searchToggle = document.getElementById('enable-search');
+let hasShownSearchWarning = false;
+
+searchToggle.addEventListener('change', () => {
+    if (searchToggle.checked && !hasShownSearchWarning) {
+        window.notifications.warning(
+            '⚠️ Internet search is an experimental feature. Results may be incomplete or unavailable. This feature may be removed or changed at any time.',
+            'SEARCH001'
+        );
+        hasShownSearchWarning = true;
     }
 });
 
@@ -272,6 +287,18 @@ async function sendMessage(message, retryCount = 0) {
     if (!checkAccessKey()) return;
     if (!checkTokens(message.length)) return;
     
+    const shouldSearch = searchToggle.checked;
+    let searchResults = [];
+    
+    if (shouldSearch) {
+        try {
+            searchResults = await safeSearch(message);
+        } catch (error) {
+            console.error('Search failed:', error);
+            window.notifications.error('Search feature unavailable', 'SEARCH002');
+        }
+    }
+    
     // Deduct tokens for the message
     const estimatedTokens = Math.ceil(message.length * 1.5);
     userTokens.remaining -= estimatedTokens;
@@ -298,6 +325,7 @@ async function sendMessage(message, retryCount = 0) {
                 message: message,
                 context: SYSTEM_CONTEXT,
                 history: conversationHistory,
+                searchResults: searchResults,
                 maxTokens: 4000 // Increase max output tokens
             })
         });
@@ -465,13 +493,8 @@ window.onload = async () => {
                 document.getElementById('access-key-modal').classList.remove('active');
                 document.getElementById('app-container').style.display = 'block';
                 
-                updateChatHeader();
-                addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
-                addSuggestions();
-                
-                if (conversations.length === 0) {
-                    createNewConversation();
-                }
+                initializeTokens();
+                showWelcomeScreen();
             } else {
                 window.notifications.error('Invalid access key', 'ACCESS002');
             }
@@ -479,20 +502,29 @@ window.onload = async () => {
     }
     
     if (checkAccessKey()) {
-        initializeTokens(); // Move this to the top
+        initializeTokens();
         document.getElementById('app-container').style.display = 'block';
-        updateChatHeader();
-        
-        conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
+        showWelcomeScreen();
+    }
+
+    // Add welcome screen button listeners
+    document.getElementById('create-first-chat')?.addEventListener('click', () => {
         if (conversations.length === 0) {
             createNewConversation();
-        } else {
-            currentConversationId = conversations[0].id;
-            loadConversation(currentConversationId);
         }
-        
-        addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
-        addSuggestions();
+        showChatInterface();
+    });
+
+    document.getElementById('open-manager-welcome')?.addEventListener('click', () => {
+        document.getElementById('conversation-manager').classList.add('active');
+        updateConversationManager();
+    });
+
+    // Load existing conversations
+    conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
+    if (conversations.length > 0) {
+        currentConversationId = conversations[0].id;
+        loadConversation(currentConversationId);
     }
 };
 
@@ -690,9 +722,9 @@ function loadConversation(id) {
 function escapeHtml(unsafe) {
     return unsafe
         .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
+        .replace(/<//g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
+        .replace(/"//g, "&quot;")
         .replace(/'/g, "&#039;");
 }
 
@@ -824,13 +856,20 @@ window.onload = async () => {
                 document.getElementById('access-key-modal').classList.remove('active');
                 document.getElementById('app-container').style.display = 'block';
                 
+                initializeTokens(); // Move this to the top
+                document.getElementById('app-container').style.display = 'block';
                 updateChatHeader();
-                addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
-                addSuggestions();
                 
+                conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
                 if (conversations.length === 0) {
                     createNewConversation();
+                } else {
+                    currentConversationId = conversations[0].id;
+                    loadConversation(currentConversationId);
                 }
+                
+                addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
+                addSuggestions();
             } else {
                 window.notifications.error('Invalid access key', 'ACCESS002');
             }
@@ -1077,6 +1116,14 @@ window.onload = async () => {
 
 // Add before event listeners for conversation management
 function createNewConversation() {
+    // Check if we already have a "New Conversation"
+    const existingNew = conversations.find(c => c.title === 'New Conversation' && c.messages.length === 0);
+    if (existingNew) {
+        currentConversationId = existingNew.id;
+        loadConversation(existingNew.id);
+        return existingNew;
+    }
+
     const newConversation = {
         id: Date.now().toString(),
         title: 'New Conversation',

@@ -34,11 +34,20 @@ exports.handler = async function(event, context) {
     });
 
     const body = JSON.parse(event.body);
+    
+    // Add search results to context if available
+    let enhancedContext = body.context;
+    if (body.searchResults && body.searchResults.length > 0) {
+        const searchInfo = body.searchResults
+            .map(r => `${r.title}: ${r.snippet}`)
+            .join('\n\n');
+        enhancedContext += `\n\nRecent search results:\n${searchInfo}`;
+    }
 
     const response = await client.chatbot({
-      input: body.message,
-      context: body.context,
-      history: body.history
+        input: body.message,
+        context: enhancedContext,
+        history: body.history
     });
 
     return {
