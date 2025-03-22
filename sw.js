@@ -21,8 +21,8 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin)) {
+  // Skip caching for POST requests and non-origin requests
+  if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
     return;
   }
 
@@ -34,7 +34,7 @@ self.addEventListener('fetch', event => {
         }
         return fetch(event.request)
           .then(response => {
-            // Cache successful responses
+            // Cache successful GET responses
             if (response.ok && response.type === 'basic') {
               const responseToCache = response.clone();
               caches.open(CACHE_NAME)

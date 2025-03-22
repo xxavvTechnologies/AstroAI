@@ -17,6 +17,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "http-proxy-middleware": "^3.0.3",
-    "nlpcloud": "^2.0.8"
+    "nlpcloud": "^2.0.8",
+    "cheerio": "^1.0.0-rc.12"
   }
 }

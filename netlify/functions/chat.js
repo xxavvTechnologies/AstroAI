@@ -35,19 +35,39 @@ exports.handler = async function(event, context) {
 
     const body = JSON.parse(event.body);
     
-    // Add search results to context if available
+    // Improve search results processing
     let enhancedContext = body.context;
     if (body.searchResults && body.searchResults.length > 0) {
-        const searchInfo = body.searchResults
-            .map(r => `${r.title}: ${r.snippet}`)
-            .join('\n\n');
-        enhancedContext += `\n\nRecent search results:\n${searchInfo}`;
+        const searchContext = body.searchResults
+            .map((r, i) => `[Reference ${i + 1}]
+Title: "${r.title.trim()}"
+Summary: ${r.snippet.trim()}
+Source: ${r.url}
+---`).join('\n\n');
+        
+        // Add search results to context with better integration instructions
+        enhancedContext = `${body.context}
+
+Based on the user's question, I've found these relevant sources:
+
+${searchContext}
+
+Please incorporate relevant information from these sources in your response when applicable. 
+If you use information from a source, cite it as [Reference X]. 
+If the search results aren't relevant to the question, ignore them and answer based on your knowledge.
+
+User's question: "${body.message}"`;
     }
 
     const response = await client.chatbot({
         input: body.message,
         context: enhancedContext,
-        history: body.history
+        history: body.history,
+        options: {
+            temperature: 0.7,
+            max_length: 4000,
+            remove_input_from_output: true
+        }
     });
 
     return {

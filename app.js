@@ -203,22 +203,9 @@ let userTokens = {
 
 function shouldRefreshTokens() {
     if (!userTokens.lastRefresh) return true;
-    
     const now = Date.now();
-    const nextRefresh = userTokens.lastRefresh + (config.TOKEN_LIMITS[config.ACCESS_KEYS[accessKey].type].refreshHours * 3600000);
-    
-    // Check if it's time for a refresh and user isn't at zero tokens
-    if (now >= nextRefresh && userTokens.remaining > 0) {
-        return true;
-    }
-    
-    // Also refresh if tokens are low but refresh time is close (within 5 minutes)
-    const timeToRefresh = nextRefresh - now;
-    if (userTokens.remaining < userTokens.limit * 0.1 && timeToRefresh < 300000) {
-        return true;
-    }
-    
-    return false;
+    const refreshInterval = 2.5 * 3600000; // 2.5 hours in milliseconds
+    return (now - userTokens.lastRefresh) >= refreshInterval;
 }
 
 function initializeTokens() {
@@ -270,9 +257,8 @@ function refreshTokens() {
 }
 
 function checkTokens(messageLength) {
-    const estimatedTokens = Math.ceil(messageLength * 1.5); // Rough estimate
-    if (userTokens.remaining < estimatedTokens) {
-        const nextRefresh = userTokens.lastRefresh + (config.TOKEN_LIMITS[config.ACCESS_KEYS[accessKey].type].refreshHours * 3600000);
+    if (userTokens.remaining <= 0) {
+        const nextRefresh = userTokens.lastRefresh + (2.5 * 3600000);
         const timeLeft = Math.ceil((nextRefresh - Date.now()) / 60000);
         window.notifications.error(
             `Token limit reached. Please wait ${timeLeft} minutes for refresh.`,
@@ -285,25 +271,26 @@ function checkTokens(messageLength) {
 
 async function sendMessage(message, retryCount = 0) {
     if (!checkAccessKey()) return;
-    if (!checkTokens(message.length)) return;
+    if (!checkTokens()) return;
     
-    const shouldSearch = searchToggle.checked;
     let searchResults = [];
+    const shouldSearch = document.getElementById('enable-search').checked;
     
     if (shouldSearch) {
+        addMessage("🔍 Searching for relevant information...", ['bot', 'typing']);
         try {
             searchResults = await safeSearch(message);
+            if (searchResults.length > 0) {
+                window.notifications.info(`Found ${searchResults.length} relevant results`, 'SEARCH001');
+            }
         } catch (error) {
             console.error('Search failed:', error);
             window.notifications.error('Search feature unavailable', 'SEARCH002');
         }
+        // Remove the searching message
+        const typingMsg = chatMessages.querySelector('.typing');
+        if (typingMsg) typingMsg.remove();
     }
-    
-    // Deduct tokens for the message
-    const estimatedTokens = Math.ceil(message.length * 1.5);
-    userTokens.remaining -= estimatedTokens;
-    saveTokens();
-    updateTokenDisplay();
     
     addMessage(message, 'user');
     userInput.value = '';
@@ -340,6 +327,11 @@ async function sendMessage(message, retryCount = 0) {
         
         if (data.response) {
             const botResponse = data.response.trim();
+            const responseTokens = Math.ceil(botResponse.length * 1.5); // Rough estimate of response tokens
+            userTokens.remaining = Math.max(0, userTokens.remaining - responseTokens);
+            saveTokens();
+            updateTokenDisplay();
+            
             addMessage(botResponse, 'bot', true);
             
             // Update conversation history
@@ -524,7 +516,7 @@ window.onload = async () => {
     conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
     if (conversations.length > 0) {
         currentConversationId = conversations[0].id;
-        loadConversation(currentConversationId);
+        ConversationManager.loadConversation(currentConversationId);
     }
 };
 
@@ -687,42 +679,11 @@ function saveConversations() {
     localStorage.setItem('conversations', JSON.stringify(conversations));
 }
 
-// Update loadConversation to handle NLPCloud format
-function loadConversation(id) {
-    const conversation = conversations.find(c => c.id === id);
-    if (!conversation) return;
-
-    currentConversationId = id;
-    clearChat();
-    showChatInterface();
-    
-    // Reset conversation history to NLPCloud format
-    conversationHistory = conversation.messages.reduce((history, msg, i, arr) => {
-        if (msg.sender === 'user' && i + 1 < arr.length && arr[i + 1].sender === 'bot') {
-            history.push({
-                input: msg.content,
-                response: arr[i + 1].content
-            });
-        }
-        return history;
-    }, []);
-    
-    // Add messages to UI
-    conversation.messages.forEach(msg => {
-        addMessage(msg.content, msg.sender, msg.sender === 'bot');
-    });
-    
-    scrollToBottom(false);
-    
-    document.getElementById('conversation-manager').classList.remove('active');
-    window.notifications.info('Loaded conversation', 'CONV002');
-}
-
 // Add this utility function before updateConversationManager
 function escapeHtml(unsafe) {
     return unsafe
         .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
+        .replace(/<//g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
@@ -735,16 +696,16 @@ function updateConversationManager() {
             <div class="conversation-info">
                 <div class="conversation-title">${escapeHtml(conv.title)}</div>
                 <div class="conversation-meta">
-                    ${conv.messages.length} messages · ${new Date(parseInt(conv.id)).toLocaleDateString()}
+                    ${conv.messages.length || 0} messages · ${new Date(parseInt(conv.id)).toLocaleDateString()}
                 </div>
             </div>
             <div class="conversation-actions">
-                <button class="conversation-action-btn rename" data-id="${conv.id}">
-                    <i class="fas fa-edit"></i>
+                <button class="conversation-action-btn rename" title="Rename" data-id="${conv.id}">
+                    <i class="ri-pencil-line"></i>
                 </button>
-                <button class="conversation-action-btn delete" data-id="${conv.id}" 
-                    ${conversations.length <= 1 ? 'disabled' : ''}>
-                    <i class="fas fa-trash"></i>
+                <button class="conversation-action-btn delete" title="Delete" 
+                    data-id="${conv.id}" ${conversations.length <= 1 ? 'disabled' : ''}>
+                    <i class="ri-delete-bin-line"></i>
                 </button>
             </div>
         </div>
@@ -752,41 +713,86 @@ function updateConversationManager() {
 
     // Add event listeners
     list.querySelectorAll('.conversation-item').forEach(item => {
-        item.addEventListener('click', () => loadConversation(item.dataset.id));
+        const itemId = item.dataset.id;
+        
+        // Click on conversation area (not buttons)
+        item.addEventListener('click', (e) => {
+            if (!e.target.closest('.conversation-action-btn')) {
+                ConversationManager.loadConversation(itemId);
+            }
+        });
     });
 
+    // Rename button handler
     list.querySelectorAll('.rename').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const conv = conversations.find(c => c.id === btn.dataset.id);
+            if (!conv) return;
+            
             const newTitle = prompt('Enter new conversation title:', conv.title);
-            if (newTitle && newTitle.trim()) {
+            if (newTitle && newTitle.trim() && newTitle !== conv.title) {
                 renameConversation(conv.id, newTitle.trim());
-                updateConversationManager();
             }
         });
     });
 
+    // Delete button handler
     list.querySelectorAll('.delete').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             if (conversations.length <= 1) return;
             
-            if (confirm('Are you sure you want to delete this conversation?')) {
-                const index = conversations.findIndex(c => c.id === btn.dataset.id);
-                conversations = conversations.filter(c => c.id !== btn.dataset.id);
+            const shouldDelete = confirm('Are you sure you want to delete this conversation?');
+            if (shouldDelete) {
+                const convId = btn.dataset.id;
+                const index = conversations.findIndex(c => c.id === convId);
                 
-                if (btn.dataset.id === currentConversationId) {
-                    currentConversationId = conversations[Math.min(index, conversations.length - 1)].id;
-                    loadConversation(currentConversationId);
+                // Remove the conversation
+                conversations = conversations.filter(c => c.id !== convId);
+                saveConversations();
+                
+                // If we deleted the active conversation, load another one
+                if (convId === currentConversationId) {
+                    const nextConv = conversations[Math.min(index, conversations.length - 1)];
+                    if (nextConv) {
+                        await ConversationManager.loadConversation(nextConv.id);
+                    } else {
+                        createNewConversation();
+                    }
                 }
                 
-                saveConversations();
                 updateConversationManager();
-                window.notifications.info('Conversation deleted', 'CONV005');
+                window.notifications.success('Conversation deleted', 'CONV003');
             }
         });
     });
+}
+
+// Update the loadConversation function to maintain selection state
+async function loadConversation(id) {
+    const conversation = conversations.find(c => c.id === id);
+    if (!conversation) return;
+
+    // Update selection state
+    document.querySelectorAll('.conversation-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.id === id);
+    });
+
+    currentConversationId = id;
+    clearChat();
+    showChatInterface();
+    
+    // Reset conversation history
+    conversationHistory = [];
+    
+    // Add messages to UI
+    conversation.messages.forEach(msg => {
+        addMessage(msg.content, msg.sender, msg.sender === 'bot');
+    });
+    
+    scrollToBottom(false);
+    document.getElementById('conversation-manager').classList.remove('active');
 }
 
 // Update event listeners
@@ -816,7 +822,7 @@ window.addEventListener('load', () => {
         createNewConversation();
     } else {
         currentConversationId = conversations[0].id;
-        loadConversation(currentConversationId);
+        ConversationManager.loadConversation(currentConversationId);
     }
 });
 
@@ -865,7 +871,7 @@ window.onload = async () => {
                     createNewConversation();
                 } else {
                     currentConversationId = conversations[0].id;
-                    loadConversation(currentConversationId);
+                    ConversationManager.loadConversation(currentConversationId);
                 }
                 
                 addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
@@ -886,7 +892,7 @@ window.onload = async () => {
             createNewConversation();
         } else {
             currentConversationId = conversations[0].id;
-            loadConversation(currentConversationId);
+            ConversationManager.loadConversation(currentConversationId);
         }
         
         addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
@@ -1120,7 +1126,7 @@ function createNewConversation() {
     const existingNew = conversations.find(c => c.title === 'New Conversation' && c.messages.length === 0);
     if (existingNew) {
         currentConversationId = existingNew.id;
-        loadConversation(existingNew.id);
+        ConversationManager.loadConversation(existingNew.id);
         return existingNew;
     }
 
@@ -1149,21 +1155,623 @@ function createNewConversation() {
 
 // Event listeners for conversation management
 document.getElementById('new-conversation-btn')?.addEventListener('click', () => {
-    createNewConversation();
+    ConversationManager.createNew();
     updateConversationManager();
     document.getElementById('conversation-manager').classList.remove('active');
 });
 
+// Update loadConversation calls
+function updateConversationManager() {
+    const list = document.getElementById('conversation-list');
+    list.innerHTML = conversations.map(conv => `
+        <div class="conversation-item ${conv.id === currentConversationId ? 'active' : ''}" data-id="${conv.id}">
+            <div class="conversation-info">
+                <div class="conversation-title">${escapeHtml(conv.title)}</div>
+                <div class="conversation-meta">
+                    ${conv.messages.length || 0} messages · ${new Date(parseInt(conv.id)).toLocaleDateString()}
+                </div>
+            </div>
+            <div class="conversation-actions">
+                <button class="conversation-action-btn rename" title="Rename" data-id="${conv.id}">
+                    <i class="ri-pencil-line"></i>
+                </button>
+                <button class="conversation-action-btn delete" title="Delete" 
+                    data-id="${conv.id}" ${conversations.length <= 1 ? 'disabled' : ''}>
+                    <i class="ri-delete-bin-line"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    // Add event listeners
+    list.querySelectorAll('.conversation-item').forEach(item => {
+        const itemId = item.dataset.id;
+        item.addEventListener('click', (e) => {
+            if (!e.target.closest('.conversation-action-btn')) {
+                ConversationManager.loadConversation(itemId);
+            }
+        });
+    });
+
+    // Rename button handler
+    list.querySelectorAll('.rename').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const conv = conversations.find(c => c.id === btn.dataset.id);
+            if (!conv) return;
+            
+            const newTitle = prompt('Enter new conversation title:', conv.title);
+            if (newTitle?.trim() && newTitle !== conv.title) {
+                ConversationManager.rename(conv.id, newTitle.trim());
+            }
+        });
+    });
+
+    // Delete button handler
+    list.querySelectorAll('.delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (conversations.length <= 1) return;
+            
+            const shouldDelete = confirm('Are you sure you want to delete this conversation?');
+            if (shouldDelete) {
+                await ConversationManager.delete(btn.dataset.id);
+            }
+        });
+    });
+}
+
+// Remove duplicate loadConversation and other redundant functions
+// ... continue with existing code ...
+
+function saveConversations() {
+    localStorage.setItem('conversations', JSON.stringify(conversations));
+}
+
+// Add this utility function before updateConversationManager
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/<//g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function updateConversationManager() {
+    const list = document.getElementById('conversation-list');
+    list.innerHTML = conversations.map(conv => `
+        <div class="conversation-item ${conv.id === currentConversationId ? 'active' : ''}" data-id="${conv.id}">
+            <div class="conversation-info">
+                <div class="conversation-title">${escapeHtml(conv.title)}</div>
+                <div class="conversation-meta">
+                    ${conv.messages.length || 0} messages · ${new Date(parseInt(conv.id)).toLocaleDateString()}
+                </div>
+            </div>
+            <div class="conversation-actions">
+                <button class="conversation-action-btn rename" title="Rename" data-id="${conv.id}">
+                    <i class="ri-pencil-line"></i>
+                </button>
+                <button class="conversation-action-btn delete" title="Delete" 
+                    data-id="${conv.id}" ${conversations.length <= 1 ? 'disabled' : ''}>
+                    <i class="ri-delete-bin-line"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    // Add event listeners
+    list.querySelectorAll('.conversation-item').forEach(item => {
+        const itemId = item.dataset.id;
+        
+        // Click on conversation area (not buttons)
+        item.addEventListener('click', (e) => {
+            if (!e.target.closest('.conversation-action-btn')) {
+                ConversationManager.loadConversation(itemId);
+            }
+        });
+    });
+
+    // Rename button handler
+    list.querySelectorAll('.rename').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const conv = conversations.find(c => c.id === btn.dataset.id);
+            if (!conv) return;
+            
+            const newTitle = prompt('Enter new conversation title:', conv.title);
+            if (newTitle && newTitle.trim() && newTitle !== conv.title) {
+                renameConversation(conv.id, newTitle.trim());
+            }
+        });
+    });
+
+    // Delete button handler
+    list.querySelectorAll('.delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (conversations.length <= 1) return;
+            
+            const shouldDelete = confirm('Are you sure you want to delete this conversation?');
+            if (shouldDelete) {
+                const convId = btn.dataset.id;
+                const index = conversations.findIndex(c => c.id === convId);
+                
+                // Remove the conversation
+                conversations = conversations.filter(c => c.id !== convId);
+                saveConversations();
+                
+                // If we deleted the active conversation, load another one
+                if (convId === currentConversationId) {
+                    const nextConv = conversations[Math.min(index, conversations.length - 1)];
+                    if (nextConv) {
+                        await ConversationManager.loadConversation(nextConv.id);
+                    } else {
+                        createNewConversation();
+                    }
+                }
+                
+                updateConversationManager();
+                window.notifications.success('Conversation deleted', 'CONV003');
+            }
+        });
+    });
+}
+
+// Update the loadConversation function to maintain selection state
+async function loadConversation(id) {
+    const conversation = conversations.find(c => c.id === id);
+    if (!conversation) return;
+
+    // Update selection state
+    document.querySelectorAll('.conversation-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.id === id);
+    });
+
+    currentConversationId = id;
+    clearChat();
+    showChatInterface();
+    
+    // Reset conversation history
+    conversationHistory = [];
+    
+    // Add messages to UI
+    conversation.messages.forEach(msg => {
+        addMessage(msg.content, msg.sender, msg.sender === 'bot');
+    });
+    
+    scrollToBottom(false);
+    document.getElementById('conversation-manager').classList.remove('active');
+}
+
+// Update event listeners
 document.getElementById('close-manager')?.addEventListener('click', () => {
     document.getElementById('conversation-manager').classList.remove('active');
 });
 
-// Initialize first conversation if none exists
-if (conversations.length === 0) {
+document.getElementById('new-conversation-btn')?.addEventListener('click', () => {
     createNewConversation();
-} else {
     updateConversationManager();
+    document.getElementById('conversation-manager').classList.remove('active');
+});
+
+// Add search functionality
+document.querySelector('.search-conversations')?.addEventListener('input', (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    document.querySelectorAll('.conversation-item').forEach(item => {
+        const title = item.querySelector('.conversation-title').textContent.toLowerCase();
+        item.style.display = title.includes(searchTerm) ? 'flex' : 'none';
+    });
+});
+
+// Load conversations on startup
+window.addEventListener('load', () => {
+    conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
+    if (conversations.length === 0) {
+        createNewConversation();
+    } else {
+        currentConversationId = conversations[0].id;
+        ConversationManager.loadConversation(currentConversationId);
+    }
+});
+
+// Add clearChat function
+function clearChat() {
+    while (chatMessages.firstChild) {
+        chatMessages.removeChild(chatMessages.firstChild);
+    }
 }
+
+// Replace the conversation bar markup with a single manager button
+function updateChatHeader() {
+    const existingBar = document.querySelector('.conversation-bar');
+    if (existingBar) existingBar.remove();
+    
+    const managerBtn = document.createElement('button');
+    managerBtn.className = 'conversation-manager-btn';
+    managerBtn.innerHTML = '<i class="fas fa-bars"></i> Conversations';
+    managerBtn.addEventListener('click', () => {
+        document.getElementById('conversation-manager').classList.add('active');
+        updateConversationManager();
+    });
+    
+    chatMessages.parentElement.insertBefore(managerBtn, chatMessages);
+}
+
+// Update the initialization code
+window.onload = async () => {
+    await loadSystemContext();
+    const submitButton = document.getElementById('submit-access-key');
+    if (submitButton) {
+        submitButton.addEventListener('click', () => {
+            const inputKey = document.getElementById('access-key-input').value.trim();
+            if (inputKey && VALID_ACCESS_KEYS.includes(inputKey)) {
+                accessKey = inputKey;
+                localStorage.setItem('astroAccessKey', inputKey);
+                document.getElementById('access-key-modal').classList.remove('active');
+                document.getElementById('app-container').style.display = 'block';
+                
+                initializeTokens(); // Move this to the top
+                document.getElementById('app-container').style.display = 'block';
+                updateChatHeader();
+                
+                conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
+                if (conversations.length === 0) {
+                    createNewConversation();
+                } else {
+                    currentConversationId = conversations[0].id;
+                    ConversationManager.loadConversation(currentConversationId);
+                }
+                
+                addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
+                addSuggestions();
+            } else {
+                window.notifications.error('Invalid access key', 'ACCESS002');
+            }
+        });
+    }
+    
+    if (checkAccessKey()) {
+        initializeTokens(); // Move this to the top
+        document.getElementById('app-container').style.display = 'block';
+        updateChatHeader();
+        
+        conversations = JSON.parse(localStorage.getItem('conversations') || '[]');
+        if (conversations.length === 0) {
+            createNewConversation();
+        } else {
+            currentConversationId = conversations[0].id;
+            ConversationManager.loadConversation(currentConversationId);
+        }
+        
+        addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
+        addSuggestions();
+    }
+};
+
+// Remove old conversation select event listeners
+// ...existing code...
+
+// Context Menu Implementation
+const contextMenu = document.getElementById('context-menu');
+let activeMessage = null;
+
+document.addEventListener('contextmenu', (e) => {
+    const messageElement = e.target.closest('.message');
+    if (messageElement) {
+        e.preventDefault();
+        activeMessage = messageElement;
+        showContextMenu(e.clientX, e.clientY);
+    }
+});
+
+document.addEventListener('click', () => {
+    hideContextMenu();
+});
+
+function showContextMenu(x, y) {
+    contextMenu.style.left = `${x}px`;
+    contextMenu.style.top = `${y}px`;
+    
+    // Adjust position if menu goes outside viewport
+    const rect = contextMenu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+        contextMenu.style.left = `${window.innerWidth - rect.width - 5}px`;
+    }
+    if (rect.bottom > window.innerHeight) {
+        contextMenu.style.top = `${window.innerHeight - rect.height - 5}px`;
+    }
+    
+    contextMenu.classList.add('active');
+}
+
+function hideContextMenu() {
+    contextMenu.classList.remove('active');
+    activeMessage = null;
+}
+
+// Context Menu Actions
+document.querySelectorAll('.context-menu-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const action = item.dataset.action;
+        
+        if (activeMessage) {
+            switch (action) {
+                case 'copy':
+                    copyMessageContent(activeMessage);
+                    break;
+                case 'quote':
+                    quoteMessage(activeMessage);
+                    break;
+                case 'select':
+                    selectMessageText(activeMessage);
+                    break;
+                case 'read':
+                    readMessageAloud(activeMessage);
+                    break;
+            }
+        }
+        
+        hideContextMenu();
+    });
+});
+
+function copyMessageContent(messageElement) {
+    const content = messageElement.innerText;
+    navigator.clipboard.writeText(content).then(() => {
+        window.notifications.success('Message copied to clipboard', 'COPY001');
+    }).catch(() => {
+        window.notifications.error('Failed to copy message', 'COPY002');
+    });
+}
+
+function quoteMessage(messageElement) {
+    if (!messageElement.classList.contains('bot-message')) return;
+    
+    const content = messageElement.innerText;
+    const quotedText = content.length > 150 ? content.substring(0, 150) + '...' : content;
+    
+    const quoteWrapper = document.createElement('div');
+    quoteWrapper.classList.add('quote-content');
+    quoteWrapper.textContent = quotedText;
+    
+    userInput.focus();
+    userInput.value = '';
+    
+    const lastMessage = chatMessages.lastElementChild;
+    if (lastMessage && lastMessage.classList.contains('suggestions')) {
+        lastMessage.remove();
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message', 'user-message', 'quote-reference');
+    messageDiv.appendChild(quoteWrapper);
+    chatMessages.appendChild(messageDiv);
+    
+    messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    messageElement.classList.add('highlighted');
+    setTimeout(() => messageElement.classList.remove('highlighted'), 2000);
+}
+
+function selectMessageText(messageElement) {
+    const range = document.createRange();
+    range.selectNodeContents(messageElement);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+function readMessageAloud(messageElement) {
+    const text = messageElement.innerText;
+    
+    // Check if speech synthesis is supported
+    if (!window.speechSynthesis) {
+        window.notifications.error('Text-to-speech not supported in this browser', 'TTS001');
+        return;
+    }
+    
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    
+    utterance.onstart = () => {
+        messageElement.style.opacity = '0.7';
+        window.notifications.info('Reading message...', 'TTS002');
+    };
+    
+    utterance.onend = () => {
+        messageElement.style.opacity = '1';
+    };
+    
+    utterance.onerror = () => {
+        messageElement.style.opacity = '1';
+        window.notifications.error('Failed to read message', 'TTS003');
+    };
+    
+    window.speechSynthesis.speak(utterance);
+}
+
+// Add this helper function after the other utility functions
+function scrollToBottom(smooth = true) {
+    const scrollOptions = {
+        top: chatMessages.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+    };
+    chatMessages.scrollTo(scrollOptions);
+}
+
+// Set up token refresh check interval
+const TOKEN_CHECK_INTERVAL = 30000; // Check every 30 seconds
+setInterval(() => {
+    if (checkAccessKey()) {
+        updateTokenDisplay();
+    }
+}, TOKEN_CHECK_INTERVAL);
+
+// ...rest of existing code...
+
+function showWelcomeScreen() {
+    document.getElementById('welcome-screen').style.display = 'flex';
+    document.querySelector('.chat-container').style.display = 'none';
+}
+
+function showChatInterface() {
+    document.getElementById('welcome-screen').style.display = 'none';
+    document.querySelector('.chat-container').style.display = 'flex';
+    
+    // Add event listener to conversation manager button
+    document.querySelector('.conversation-manager-btn').addEventListener('click', () => {
+        document.getElementById('conversation-manager').classList.add('active');
+        updateConversationManager();
+    });
+}
+
+// Update window.onload
+window.onload = async () => {
+    await loadSystemContext();
+    const submitButton = document.getElementById('submit-access-key');
+    if (submitButton) {
+        submitButton.addEventListener('click', () => {
+            const inputKey = document.getElementById('access-key-input').value.trim();
+            if (inputKey && VALID_ACCESS_KEYS.includes(inputKey)) {
+                accessKey = inputKey;
+                localStorage.setItem('astroAccessKey', inputKey);
+                document.getElementById('access-key-modal').classList.remove('active');
+                document.getElementById('app-container').style.display = 'block';
+                
+                initializeTokens();
+                showWelcomeScreen();
+            } else {
+                window.notifications.error('Invalid access key', 'ACCESS002');
+            }
+        });
+    }
+    
+    if (checkAccessKey()) {
+        initializeTokens();
+        document.getElementById('app-container').style.display = 'block';
+        showWelcomeScreen();
+    }
+
+    // Add welcome screen button listeners
+    document.getElementById('create-first-chat')?.addEventListener('click', () => {
+        createNewConversation();
+        showChatInterface();
+    });
+
+    document.getElementById('open-manager-welcome')?.addEventListener('click', () => {
+        document.getElementById('conversation-manager').classList.add('active');
+        updateConversationManager();
+    });
+};
+
+// Add before event listeners for conversation management
+function createNewConversation() {
+    // Check if we already have a "New Conversation"
+    const existingNew = conversations.find(c => c.title === 'New Conversation' && c.messages.length === 0);
+    if (existingNew) {
+        currentConversationId = existingNew.id;
+        ConversationManager.loadConversation(existingNew.id);
+        return existingNew;
+    }
+
+    const newConversation = {
+        id: Date.now().toString(),
+        title: 'New Conversation',
+        messages: [],
+        created: Date.now(),
+        lastModified: Date.now()
+    };
+    
+    conversations.unshift(newConversation);
+    currentConversationId = newConversation.id;
+    
+    clearChat();
+    showChatInterface();
+    saveConversations();
+    
+    // Add welcome message to new conversation
+    addMessage("👋 Hi! I'm Astro AI. What would you like to know?", 'bot', true);
+    addSuggestions();
+    
+    window.notifications.success('New conversation created', 'CONV001');
+    return newConversation;
+}
+
+// Event listeners for conversation management
+document.getElementById('new-conversation-btn')?.addEventListener('click', () => {
+    ConversationManager.createNew();
+    updateConversationManager();
+    document.getElementById('conversation-manager').classList.remove('active');
+});
+
+// Update loadConversation calls
+function updateConversationManager() {
+    const list = document.getElementById('conversation-list');
+    list.innerHTML = conversations.map(conv => `
+        <div class="conversation-item ${conv.id === currentConversationId ? 'active' : ''}" data-id="${conv.id}">
+            <div class="conversation-info">
+                <div class="conversation-title">${escapeHtml(conv.title)}</div>
+                <div class="conversation-meta">
+                    ${conv.messages.length || 0} messages · ${new Date(parseInt(conv.id)).toLocaleDateString()}
+                </div>
+            </div>
+            <div class="conversation-actions">
+                <button class="conversation-action-btn rename" title="Rename" data-id="${conv.id}">
+                    <i class="ri-pencil-line"></i>
+                </button>
+                <button class="conversation-action-btn delete" title="Delete" 
+                    data-id="${conv.id}" ${conversations.length <= 1 ? 'disabled' : ''}>
+                    <i class="ri-delete-bin-line"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    // Add event listeners
+    list.querySelectorAll('.conversation-item').forEach(item => {
+        const itemId = item.dataset.id;
+        item.addEventListener('click', (e) => {
+            if (!e.target.closest('.conversation-action-btn')) {
+                ConversationManager.loadConversation(itemId);
+            }
+        });
+    });
+
+    // Rename button handler
+    list.querySelectorAll('.rename').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const conv = conversations.find(c => c.id === btn.dataset.id);
+            if (!conv) return;
+            
+            const newTitle = prompt('Enter new conversation title:', conv.title);
+            if (newTitle?.trim() && newTitle !== conv.title) {
+                ConversationManager.rename(conv.id, newTitle.trim());
+            }
+        });
+    });
+
+    // Delete button handler
+    list.querySelectorAll('.delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (conversations.length <= 1) return;
+            
+            const shouldDelete = confirm('Are you sure you want to delete this conversation?');
+            if (shouldDelete) {
+                await ConversationManager.delete(btn.dataset.id);
+            }
+        });
+    });
+}
+
+// Remove duplicate loadConversation and other redundant functions
+// ... continue with existing code ...
 
 
 

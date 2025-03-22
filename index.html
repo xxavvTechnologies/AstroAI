@@ -29,7 +29,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-jsx.min.js"></script>
     <meta name="terms" content="This service uses NLPCloud's fine-tuned LLaMA model for processing">
     <meta name="license" content="Service Terms: Contact xxavvTechnologies for details">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- Remove or comment out Font Awesome -->
+    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"> -->
     <script src="config.js" type="module"></script>
     <script src="notifications.js" type="module"></script>
     <script src="app.js" type="module"></script>
@@ -50,20 +52,32 @@
 </head>
 <body>
     <div id="access-key-modal" class="modal">
-        <div class="modal-content">
-            <h2>Enter Access Key</h2>
-            <p>Please enter your access key to use Astro AI</p>
-            <div class="input-area" style="margin: 20px 0;">
+        <div class="modal-content glass-panel">
+            <h2>Welcome to Astro AI</h2>
+            <div class="logo-section">
+                <img src="https://d2zcpib8duehag.cloudfront.net/Astro.png" alt="Astro Logo" class="modal-logo">
+            </div>
+            <p class="modal-subtitle">Enter your access key to begin</p>
+            <div class="input-area glass" style="margin: 20px 0;">
                 <input type="password" id="access-key-input" placeholder="Enter your access key">
-                <button id="submit-access-key">Submit</button>
+                <button id="submit-access-key" class="primary-button">
+                    <i class="ri-arrow-right-line"></i>
+                </button>
             </div>
             <p class="notice">Need an access key? Contact xxavvTechnologies for access.</p>
         </div>
     </div>
 
     <div id="terms-modal" class="modal">
-        <div class="modal-content">
-            <h2>Terms & Conditions</h2>
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h2>Terms & Conditions</h2>
+                <div class="progress-steps">
+                    <div class="step active">Terms</div>
+                    <div class="step">Notice</div>
+                    <div class="step">Start</div>
+                </div>
+            </div>
             <div class="terms-sections">
                 <section>
                     <h3>Service Terms</h3>
@@ -97,129 +111,177 @@
                 </section>
             </div>
 
-            <div class="terms-actions">
-                <label class="checkbox-container">
+            <div class="terms-actions glass">
+                <label class="checkbox-container glass">
                     <input type="checkbox" id="terms-checkbox">
                     <span class="checkmark"></span>
                     I agree to the Terms & Conditions
                 </label>
-                <button id="accept-terms" disabled>Start Using Astro AI</button>
+                <button id="accept-terms" class="primary-button" disabled>Continue</button>
             </div>
         </div>
     </div>
     <div id="dev-notice-modal" class="modal">
-        <div class="modal-content">
-            <h2>⚠️ Development Preview</h2>
-            <div class="dev-notice">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h2>⚠️ Development Preview</h2>
+                <div class="progress-steps">
+                    <div class="step done">Terms</div>
+                    <div class="step active">Notice</div>
+                    <div class="step">Start</div>
+                </div>
+            </div>
+            <div class="dev-notice glass">
                 <p>Welcome to the Astro AI development preview!</p>
                 <ul>
-                    <li>This is an experimental version with limited availability</li>
-                    <li>Features may be unstable or change without notice</li>
-                    <li>Access is currently restricted to selected users</li>
+                    <li><i class="ri-flask-line"></i> This is an experimental version with limited availability</li>
+                    <li><i class="ri-error-warning-line"></i> Features may be unstable or change without notice</li>
+                    <li><i class="ri-lock-line"></i> Access is currently restricted to selected users</li>
                 </ul>
-                <button id="acknowledge-dev-notice">I Understand, Continue</button>
+                <button id="acknowledge-dev-notice" class="primary-button">
+                    I Understand, Continue <i class="ri-arrow-right-line"></i>
+                </button>
             </div>
         </div>
     </div>
     <div id="app-container" class="container" style="display: none;">
-        <header>
-            <div class="logo">
-                <h1>Astro</h1>
-            </div>
-            <div class="token-status">
-                <div class="token-bar">
-                    <div class="token-progress"></div>
+        <header class="app-header glass">
+            <div class="header-content">
+                <div class="logo">
+                    <img src="https://d2zcpib8duehag.cloudfront.net/Astro.png" alt="Astro Logo" class="logo-image">
+                    <h1>Astro</h1>
                 </div>
-                <span class="token-count"></span>
-                <span class="token-refresh"></span>
+                <div class="header-actions">
+                    <div class="token-status glass">
+                        <div class="token-bar">
+                            <div class="token-progress"></div>
+                        </div>
+                        <span class="token-count"></span>
+                    </div>
+                    <button class="theme-toggle glass" id="theme-toggle" title="Toggle theme">
+                        <i class="ri-contrast-2-line"></i>
+                    </button>
+                </div>
             </div>
         </header>
         
-        <div id="welcome-screen" class="welcome-screen">
+        <div id="welcome-screen" class="welcome-screen glass-panel">
             <div class="welcome-content">
                 <h1>Welcome to Astro AI</h1>
-                <p>Your space-bound companion for insightful conversations</p>
+                <p class="welcome-subtitle">Your space-bound companion for insightful conversations</p>
                 
-                <div class="welcome-actions">
-                    <button id="create-first-chat" class="primary-btn">
-                        <i class="fas fa-plus"></i> Start New Chat
-                    </button>
-                    <button id="open-manager-welcome" class="secondary-btn">
-                        <i class="fas fa-folder-open"></i> View Past Chats
-                    </button>
+                <div class="feature-grid">
+                    <div class="feature-card glass">
+                        <i class="ri-brain-line"></i>
+                        <h3>Smart Conversations</h3>
+                        <p>Get intelligent responses powered by advanced AI</p>
+                    </div>
+                    <div class="feature-card glass">
+                        <i class="ri-search-line"></i>
+                        <h3>Real-time Search</h3>
+                        <p>Access current information when needed</p>
+                    </div>
+                    <div class="feature-card glass">
+                        <i class="ri-history-line"></i>
+                        <h3>Chat History</h3>
+                        <p>Never lose your important conversations</p>
+                    </div>
+                    <div class="feature-card glass">
+                        <i class="ri-shield-check-line"></i>
+                        <h3>Secure & Private</h3>
+                        <p>Your conversations are protected</p>
+                    </div>
                 </div>
 
-                <div class="quick-tips">
-                    <h3>Quick Tips</h3>
-                    <ul>
-                        <li>💬 Ask anything - from simple questions to complex topics</li>
-                        <li>📋 Right-click messages to copy or quote them</li>
-                        <li>🔍 Use the conversation manager to find past chats</li>
-                        <li>⚡ Start with clear, specific questions for better results</li>
-                    </ul>
+                <div class="welcome-actions">
+                    <button id="create-first-chat" class="primary-button">
+                        <i class="ri-add-line"></i> Start New Chat
+                    </button>
+                    <button id="open-manager-welcome" class="secondary-button glass">
+                        <i class="ri-folder-open-line"></i> View Past Chats
+                    </button>
                 </div>
             </div>
         </div>
 
-        <main class="chat-container" style="display: none;">
-            <button class="conversation-manager-btn">
-                <i class="fas fa-bars"></i> Conversations
-            </button>
-            <div id="chat-messages"></div>
-            <form id="chat-form" class="input-area">
-                <div class="input-wrapper">
-                    <input type="text" id="user-input" placeholder="Ask Astro anything..." autocomplete="off">
-                    <label class="search-toggle">
-                        <input type="checkbox" id="enable-search">
-                        <span class="toggle-label">🔍 Enable Search</span>
-                    </label>
-                </div>
-                <button type="submit">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
+        <main class="chat-container glass-panel" style="display: none;">
+            <div class="chat-header glass">
+                <button class="conversation-manager-btn">
+                    <i class="ri-menu-line"></i>
                 </button>
+                <h2 class="chat-title">New Conversation</h2>
+                <div class="chat-actions">
+                    <button class="action-btn glass" id="clear-chat">
+                        <i class="ri-delete-bin-line"></i>
+                    </button>
+                    <button class="action-btn glass" id="export-chat">
+                        <i class="ri-download-line"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="chat-messages"></div>
+            <form id="chat-form" class="input-area glass">
+                <div class="input-wrapper">
+                    <div class="input-container glass">
+                        <input type="text" id="user-input" placeholder="Ask Astro anything..." autocomplete="off">
+                        <button type="submit" class="send-button">
+                            <i class="ri-send-plane-line"></i>
+                        </button>
+                    </div>
+                    <div class="input-footer">
+                        <label class="search-toggle glass">
+                            <input type="checkbox" id="enable-search">
+                            <span class="toggle-label">
+                                <i class="ri-search-line"></i> Enable Search
+                                <span class="experimental-badge">Beta</span>
+                            </span>
+                        </label>
+                        <span class="char-counter">0/1000</span>
+                    </div>
+                </div>
             </form>
         </main>
     </div>
 
     <div id="conversation-manager" class="modal conversation-manager-modal">
-        <div class="modal-content">
-            <button id="close-manager">
-                <i class="fas fa-times"></i>
-            </button>
-            <div class="manager-header">
-                <h2>Manage Conversations</h2>
-                <input type="text" class="search-conversations" placeholder="Search conversations...">
+        <div class="modal-content glass-panel">
+            <div class="manager-header glass">
+                <h2>Conversations</h2>
+                <div class="header-actions">
+                    <div class="search-container glass">
+                        <i class="ri-search-line"></i>
+                        <input type="text" class="search-conversations" placeholder="Search conversations...">
+                    </div>
+                    <button id="close-manager" class="conversation-action-btn">
+                        <i class="ri-close-line"></i>
+                    </button>
+                </div>
             </div>
             
-            <div class="conversation-list" id="conversation-list">
-                <!-- Conversations will be inserted here -->
-            </div>
+            <div class="conversation-list" id="conversation-list"></div>
             
-            <div class="manager-actions">
-                <button class="conversation-action-btn" id="new-conversation-btn">
-                    <i class="fas fa-plus"></i> New Conversation
+            <div class="manager-actions glass">
+                <button class="primary-button" id="new-conversation-btn">
+                    <i class="ri-add-line"></i> New Conversation
                 </button>
             </div>
         </div>
     </div>
     
-    <!-- Add before closing body tag -->
-    <div id="context-menu" class="context-menu">
+    <div id="context-menu" class="context-menu glass">
         <div class="context-menu-item" data-action="copy">
-            <i class="fas fa-copy"></i> Copy Message
+            <i class="ri-file-copy-line"></i> Copy Message
         </div>
         <div class="context-menu-item" data-action="quote">
-            <i class="fas fa-reply"></i> Quote & Reply
+            <i class="ri-reply-line"></i> Quote & Reply
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" data-action="select">
-            <i class="fas fa-mouse-pointer"></i> Select Text
+            <i class="ri-mouse-line"></i> Select Text
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" data-action="read">
-            <i class="fas fa-volume-up"></i> Read Aloud
+            <i class="ri-volume-up-line"></i> Read Aloud
         </div>
     </div>
 </body>
