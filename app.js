@@ -1165,5 +1165,166 @@ if (conversations.length === 0) {
     updateConversationManager();
 }
 
+// Add tool handlers
+document.getElementById('translate-btn')?.addEventListener('click', () => {
+    const selectedText = window.getSelection().toString();
+    if (selectedText) {
+        userInput.value = `Translate to Spanish: ${selectedText}`;
+        userInput.focus();
+    } else {
+        window.notifications.info('Select text to translate', 'TOOL001');
+    }
+});
+
+document.getElementById('format-code-btn')?.addEventListener('click', () => {
+    const selectedText = window.getSelection().toString();
+    if (selectedText) {
+        userInput.value = `Format this code:\n${selectedText}`;
+        userInput.focus();
+    } else {
+        window.notifications.info('Select code to format', 'TOOL002');
+    }
+});
+
+document.getElementById('save-chat-btn')?.addEventListener('click', async () => {
+    try {
+        const messages = Array.from(chatMessages.children)
+            .filter(el => el.classList.contains('message'))
+            .map(el => ({
+                content: el.textContent,
+                sender: el.classList.contains('user-message') ? 'user' : 'bot'
+            }));
+        
+        const chatData = JSON.stringify(messages, null, 2);
+        const blob = new Blob([chatData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat-${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        window.notifications.success('Chat saved successfully', 'TOOL003');
+    } catch (error) {
+        window.notifications.error('Failed to save chat', 'TOOL004');
+    }
+});
+
+document.getElementById('share-chat-btn')?.addEventListener('click', async () => {
+    try {
+        if ('share' in navigator && window.location.protocol === 'https:') {
+            // Create PDF with chat content
+            const pdf = await generateChatPDF();
+            const pdfBlob = await pdf.output('blob');
+            
+            // Create sharable URL for the PDF
+            const shareUrl = URL.createObjectURL(pdfBlob);
+            
+            // Try native sharing first
+            try {
+                await navigator.share({
+                    title: 'Astro AI Chat',
+                    text: 'Check out this chat from Astro AI',
+                    url: shareUrl
+                });
+                window.notifications.success('Chat shared successfully', 'SHARE001');
+            } catch (shareError) {
+                // Fallback to clipboard copy if native sharing fails
+                await navigator.clipboard.writeText(shareUrl);
+                window.notifications.success('Share link copied to clipboard', 'SHARE002');
+            }
+        } else {
+            // Fallback for browsers without share API
+            const pdf = await generateChatPDF();
+            const pdfUrl = await pdf.output('bloburl');
+            window.open(pdfUrl, '_blank');
+        }
+    } catch (error) {
+        console.error('Share error:', error);
+        window.notifications.error('Failed to share chat', 'SHARE003');
+    }
+});
+
+// Add PDF generation function
+async function generateChatPDF() {
+    // Load jsPDF library dynamically
+    if (!window.jspdf) {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+    
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF();
+    
+    // PDF styling
+    pdf.setFont('helvetica');
+    const titleSize = 16;
+    const textSize = 11;
+    const margin = 20;
+    let yPosition = margin;
+    
+    // Add title
+    pdf.setFontSize(titleSize);
+    pdf.text('Astro AI Chat', margin, yPosition);
+    yPosition += 15;
+    
+    // Add timestamp
+    pdf.setFontSize(textSize);
+    pdf.text(`Generated on ${new Date().toLocaleString()}`, margin, yPosition);
+    yPosition += 10;
+    
+    // Add messages
+    pdf.setFontSize(textSize);
+    const messages = Array.from(chatMessages.children)
+        .filter(el => el.classList.contains('message'))
+        .map(el => ({
+            content: el.textContent,
+            sender: el.classList.contains('user-message') ? 'You' : 'Astro'
+        }));
+    
+    messages.forEach(msg => {
+        // Check if we need a new page
+        if (yPosition > pdf.internal.pageSize.height - margin) {
+            pdf.addPage();
+            yPosition = margin;
+        }
+        
+        // Add sender with appropriate color
+        pdf.setTextColor(msg.sender === 'You' ? '#8b31ff' : '#4a4a4a');
+        pdf.text(`${msg.sender}:`, margin, yPosition);
+        yPosition += 5;
+        
+        // Add message content with word wrap
+        pdf.setTextColor('#000000');
+        const lines = pdf.splitTextToSize(msg.content, pdf.internal.pageSize.width - (margin * 2));
+        lines.forEach(line => {
+            if (yPosition > pdf.internal.pageSize.height - margin) {
+                pdf.addPage();
+                yPosition = margin;
+            }
+            pdf.text(line, margin, yPosition);
+            yPosition += 7;
+        });
+        yPosition += 5;
+    });
+    
+    return pdf;
+}
+
+// Helper to load external scripts
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
+// ...rest of existing code...
+
 
 

@@ -1559,3 +1559,64 @@ button:hover svg {
     font-size: 0.7rem;
     margin-left: 0.5rem;
 }
+
+/* Disclaimer styles */
+.chat-disclaimer {
+    text-align: center;
+    padding: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.8rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 0.5rem;
+    backdrop-filter: blur(5px);
+}
+
+/* Chat tools */
+.chat-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    flex-wrap: wrap;
+}
+
+.tool-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text);
+    width: 32px;
+    height: 32px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tool-btn:hover {
+    background: var(--gradient);
+    border-color: transparent;
+    transform: translateY(-2px);
+}
+
+.tool-btn i {
+    font-size: 0.9rem;
+}
+
+.tool-btn.active {
+    background: var(--gradient);
+    border-color: transparent;
+}
+
+/* Make search toggle consistent with new tools */
+.search-toggle {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.5rem;
+}
+
+.search-toggle:hover {
+    background: rgba(255, 255, 255, 0.15);
+}

@@ -47,6 +47,8 @@
             });
         }
     </script>
+    <!-- Add after other script tags in head -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
     <div id="access-key-modal" class="modal">
@@ -169,10 +171,24 @@
             <form id="chat-form" class="input-area">
                 <div class="input-wrapper">
                     <input type="text" id="user-input" placeholder="Ask Astro anything..." autocomplete="off">
-                    <label class="search-toggle">
-                        <input type="checkbox" id="enable-search">
-                        <span class="toggle-label">🔍 Enable Search</span>
-                    </label>
+                    <div class="chat-tools">
+                        <label class="search-toggle">
+                            <input type="checkbox" id="enable-search">
+                            <span class="toggle-label">🔍 Search</span>
+                        </label>
+                        <button type="button" class="tool-btn" id="translate-btn" title="Translate">
+                            <i class="fas fa-language"></i>
+                        </button>
+                        <button type="button" class="tool-btn" id="format-code-btn" title="Format Code">
+                            <i class="fas fa-code"></i>
+                        </button>
+                        <button type="button" class="tool-btn" id="save-chat-btn" title="Save Chat">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button type="button" class="tool-btn" id="share-chat-btn" title="Share Chat">
+                            <i class="fas fa-share-alt"></i>
+                        </button>
+                    </div>
                 </div>
                 <button type="submit">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -180,6 +196,9 @@
                     </svg>
                 </button>
             </form>
+            <div class="chat-disclaimer">
+                ⚠️ Note: Astro AI can make mistakes. Please verify any important information from reliable sources.
+            </div>
         </main>
     </div>
 
