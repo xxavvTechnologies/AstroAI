@@ -151,7 +151,12 @@ function addMessage(text, sender, parseMarkdown = false) {
     }
     
     chatMessages.appendChild(messageDiv);
-    scrollToBottom();
+    
+    // Ensure we're at the bottom after adding a message
+    requestAnimationFrame(() => {
+        scrollToBottom();
+    });
+    
     return messageDiv;
 }
 
@@ -694,28 +699,38 @@ function loadConversation(id) {
 
     currentConversationId = id;
     clearChat();
-    showChatInterface();
     
-    // Reset conversation history to NLPCloud format
-    conversationHistory = conversation.messages.reduce((history, msg, i, arr) => {
-        if (msg.sender === 'user' && i + 1 < arr.length && arr[i + 1].sender === 'bot') {
-            history.push({
-                input: msg.content,
-                response: arr[i + 1].content
-            });
+    try {
+        showChatInterface();
+        
+        // Reset conversation history to NLPCloud format
+        conversationHistory = conversation.messages.reduce((history, msg, i, arr) => {
+            if (msg.sender === 'user' && i + 1 < arr.length && arr[i + 1].sender === 'bot') {
+                history.push({
+                    input: msg.content,
+                    response: arr[i + 1].content
+                });
+            }
+            return history;
+        }, []);
+        
+        // Add messages to UI
+        conversation.messages.forEach(msg => {
+            addMessage(msg.content, msg.sender, msg.sender === 'bot');
+        });
+        
+        scrollToBottom(false);
+        
+        const manager = document.getElementById('conversation-manager');
+        if (manager && manager.classList.contains('active')) {
+            manager.classList.remove('active');
         }
-        return history;
-    }, []);
-    
-    // Add messages to UI
-    conversation.messages.forEach(msg => {
-        addMessage(msg.content, msg.sender, msg.sender === 'bot');
-    });
-    
-    scrollToBottom(false);
-    
-    document.getElementById('conversation-manager').classList.remove('active');
-    window.notifications.info('Loaded conversation', 'CONV002');
+        
+        window.notifications.info('Loaded conversation', 'CONV002');
+    } catch (error) {
+        console.error('Error loading conversation:', error);
+        window.notifications.error('Failed to load conversation', 'CONV003');
+    }
 }
 
 // Add this utility function before updateConversationManager
@@ -730,6 +745,8 @@ function escapeHtml(unsafe) {
 
 function updateConversationManager() {
     const list = document.getElementById('conversation-list');
+    if (!list) return;
+
     list.innerHTML = conversations.map(conv => `
         <div class="conversation-item ${conv.id === currentConversationId ? 'active' : ''}" data-id="${conv.id}">
             <div class="conversation-info">
@@ -752,7 +769,12 @@ function updateConversationManager() {
 
     // Add event listeners
     list.querySelectorAll('.conversation-item').forEach(item => {
-        item.addEventListener('click', () => loadConversation(item.dataset.id));
+        if (item) {
+            item.addEventListener('click', () => {
+                const id = item.dataset.id;
+                if (id) loadConversation(id);
+            });
+        }
     });
 
     list.querySelectorAll('.rename').forEach(btn => {
@@ -816,7 +838,13 @@ window.addEventListener('load', () => {
         createNewConversation();
     } else {
         currentConversationId = conversations[0].id;
-        loadConversation(currentConversationId);
+        try {
+            loadConversation(currentConversationId);
+        } catch (error) {
+            console.error('Error loading initial conversation:', error);
+            // Fallback to new conversation if loading fails
+            createNewConversation();
+        }
     }
 });
 
@@ -836,8 +864,11 @@ function updateChatHeader() {
     managerBtn.className = 'conversation-manager-btn';
     managerBtn.innerHTML = '<i class="fas fa-bars"></i> Conversations';
     managerBtn.addEventListener('click', () => {
-        document.getElementById('conversation-manager').classList.add('active');
-        updateConversationManager();
+        const manager = document.getElementById('conversation-manager');
+        if (manager) {
+            manager.classList.add('active');
+            updateConversationManager();
+        }
     });
     
     chatMessages.parentElement.insertBefore(managerBtn, chatMessages);
@@ -1010,43 +1041,25 @@ function selectMessageText(messageElement) {
 function readMessageAloud(messageElement) {
     const text = messageElement.innerText;
     
-    // Check if speech synthesis is supported
-    if (!window.speechSynthesis) {
-        window.notifications.error('Text-to-speech not supported in this browser', 'TTS001');
-        return;
-    }
+    // Use imported voiceInteraction instance
+    window.voiceInteraction.speak(text, true); // Force speak regardless of conversational mode
     
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    
-    utterance.onstart = () => {
-        messageElement.style.opacity = '0.7';
-        window.notifications.info('Reading message...', 'TTS002');
-    };
-    
-    utterance.onend = () => {
+    // Add visual feedback
+    messageElement.style.opacity = '0.7';
+    setTimeout(() => {
         messageElement.style.opacity = '1';
-    };
-    
-    utterance.onerror = () => {
-        messageElement.style.opacity = '1';
-        window.notifications.error('Failed to read message', 'TTS003');
-    };
-    
-    window.speechSynthesis.speak(utterance);
+    }, 100);
 }
 
 // Add this helper function after the other utility functions
 function scrollToBottom(smooth = true) {
-    const scrollOptions = {
-        top: chatMessages.scrollHeight,
-        behavior: smooth ? 'smooth' : 'auto'
-    };
-    chatMessages.scrollTo(scrollOptions);
+    const messages = document.getElementById('chat-messages');
+    if (messages) {
+        messages.scrollTo({
+            top: messages.scrollHeight,
+            behavior: smooth ? 'smooth' : 'auto'
+        });
+    }
 }
 
 // Set up token refresh check interval
@@ -1065,14 +1078,27 @@ function showWelcomeScreen() {
 }
 
 function showChatInterface() {
-    document.getElementById('welcome-screen').style.display = 'none';
-    document.querySelector('.chat-container').style.display = 'flex';
+    const welcomeScreen = document.getElementById('welcome-screen');
+    const chatContainer = document.querySelector('.chat-container');
     
-    // Add event listener to conversation manager button
-    document.querySelector('.conversation-manager-btn').addEventListener('click', () => {
-        document.getElementById('conversation-manager').classList.add('active');
-        updateConversationManager();
-    });
+    if (welcomeScreen) {
+        welcomeScreen.style.display = 'none';
+    }
+    if (chatContainer) {
+        chatContainer.style.display = 'flex';
+    }
+    
+    // Add safety check for conversation manager button
+    const managerBtn = document.querySelector('.conversation-manager-btn');
+    if (managerBtn) {
+        managerBtn.addEventListener('click', () => {
+            const manager = document.getElementById('conversation-manager');
+            if (manager) {
+                manager.classList.add('active');
+                updateConversationManager();
+            }
+        });
+    }
 }
 
 // Update window.onload
@@ -1323,8 +1349,6 @@ function loadScript(src) {
         document.head.appendChild(script);
     });
 }
-
-// ...rest of existing code...
 
 
 

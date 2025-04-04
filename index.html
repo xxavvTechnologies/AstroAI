@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Astro AI</title>
+    <title>Astro</title>
     <link rel="icon" type="image/x-icon" href="https://d2zcpib8duehag.cloudfront.net/Astro.png">
     <!-- Add PWA meta tags -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#8b31ff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="AstroAI">
+    <meta name="apple-mobile-web-app-title" content="Astro">
     <!-- Add PWA icons -->
     <link rel="apple-touch-icon" href="https://d2zcpib8duehag.cloudfront.net/Astro.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,6 +33,7 @@
     <script src="config.js" type="module"></script>
     <script src="notifications.js" type="module"></script>
     <script src="app.js" type="module"></script>
+    <script src="voice.js" type="module"></script>
     <script>
         // Register Service Worker
         if ('serviceWorker' in navigator) {
@@ -82,7 +83,7 @@
                     <h3>Usage Limits</h3>
                     <p>To ensure fair usage, token limits apply:</p>
                     <ul>
-                        <li>Token limits refresh every 1.5 hours</li>
+                        <li>Token limits refresh every 5 hours</li>
                         <li>Different account types have different limits</li>
                         <li>You'll be notified when approaching your limit</li>
                     </ul>
@@ -111,117 +112,107 @@
     </div>
     <div id="dev-notice-modal" class="modal">
         <div class="modal-content">
-            <h2>⚠️ Development Preview</h2>
-            <div class="dev-notice">
-                <p>Welcome to the Astro AI development preview!</p>
+            <h2>🚀 Welcome to Astro AI Public Beta</h2>
+            <div class="beta-notice">
+                <p>Welcome to the Astro AI public beta! A few things to note:</p>
                 <ul>
-                    <li>This is an experimental version with limited availability</li>
-                    <li>Features may be unstable or change without notice</li>
-                    <li>Access is currently restricted to selected users</li>
+                    <li>You're using our latest stable public beta release</li>
+                    <li>We're constantly improving features based on user feedback</li>
+                    <li>Your input helps shape the future of Astro AI</li>
                 </ul>
-                <button id="acknowledge-dev-notice">I Understand, Continue</button>
+                <button id="acknowledge-dev-notice">Got it, Let's Start</button>
             </div>
         </div>
     </div>
     <div id="app-container" class="container" style="display: none;">
-        <header>
-            <div class="logo">
-                <h1>Astro</h1>
-            </div>
-            <div class="token-status">
-                <div class="token-bar">
-                    <div class="token-progress"></div>
-                </div>
-                <span class="token-count"></span>
-                <span class="token-refresh"></span>
-            </div>
-        </header>
-        
-        <div id="welcome-screen" class="welcome-screen">
-            <div class="welcome-content">
-                <h1>Welcome to Astro AI</h1>
-                <p>Your space-bound companion for insightful conversations</p>
-                
-                <div class="welcome-actions">
-                    <button id="create-first-chat" class="primary-btn">
-                        <i class="fas fa-plus"></i> Start New Chat
-                    </button>
-                    <button id="open-manager-welcome" class="secondary-btn">
-                        <i class="fas fa-folder-open"></i> View Past Chats
-                    </button>
-                </div>
-
-                <div class="quick-tips">
-                    <h3>Quick Tips</h3>
-                    <ul>
-                        <li>💬 Ask anything - from simple questions to complex topics</li>
-                        <li>📋 Right-click messages to copy or quote them</li>
-                        <li>🔍 Use the conversation manager to find past chats</li>
-                        <li>⚡ Start with clear, specific questions for better results</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <main class="chat-container" style="display: none;">
-            <button class="conversation-manager-btn">
-                <i class="fas fa-bars"></i> Conversations
-            </button>
-            <div id="chat-messages"></div>
-            <form id="chat-form" class="input-area">
-                <div class="input-wrapper">
-                    <input type="text" id="user-input" placeholder="Ask Astro anything..." autocomplete="off">
-                    <div class="chat-tools">
-                        <label class="search-toggle">
-                            <input type="checkbox" id="enable-search">
-                            <span class="toggle-label">🔍 Search</span>
-                        </label>
-                        <button type="button" class="tool-btn" id="translate-btn" title="Translate">
-                            <i class="fas fa-language"></i>
-                        </button>
-                        <button type="button" class="tool-btn" id="format-code-btn" title="Format Code">
-                            <i class="fas fa-code"></i>
-                        </button>
-                        <button type="button" class="tool-btn" id="save-chat-btn" title="Save Chat">
-                            <i class="fas fa-download"></i>
-                        </button>
-                        <button type="button" class="tool-btn" id="share-chat-btn" title="Share Chat">
-                            <i class="fas fa-share-alt"></i>
-                        </button>
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <h1>Astro</h1>
+                    <div class="token-status">
+                        <div class="token-bar">
+                            <div class="token-progress"></div>
+                        </div>
+                        <span class="token-count"></span>
                     </div>
                 </div>
-                <button type="submit">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
+            </div>
+            <div class="sidebar-content">
+                <button class="new-chat-btn" id="new-conversation-btn">
+                    <i class="fas fa-plus"></i> New Chat
                 </button>
-            </form>
-            <div class="chat-disclaimer">
-                ⚠️ Note: Astro AI can make mistakes. Please verify any important information from reliable sources.
+                <input type="text" class="search-conversations" placeholder="Search conversations...">
+                <div class="conversation-list" id="conversation-list">
+                    <!-- Conversations will be inserted here -->
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div id="welcome-screen" class="welcome-screen">
+                <div class="welcome-content">
+                    <h1>Welcome to Astro AI</h1>
+                    <p>Your space-bound companion for insightful conversations</p>
+                    
+                    <div class="welcome-actions">
+                        <button id="create-first-chat" class="primary-btn">
+                            <i class="fas fa-plus"></i> Start New Chat
+                        </button>
+                        <button id="open-manager-welcome" class="secondary-btn">
+                            <i class="fas fa-folder-open"></i> View Past Chats
+                        </button>
+                        <a href="/features.html" class="secondary-btn">
+                            <i class="fas fa-star"></i> View Features
+                        </a>
+                    </div>
+
+                    <div class="quick-tips">
+                        <h3>Quick Tips</h3>
+                        <ul>
+                            <li>💬 Ask anything - from simple questions to complex topics</li>
+                            <li>📋 Right-click messages to copy or quote them</li>
+                            <li>🔍 Use the conversation manager to find past chats</li>
+                            <li>⚡ Start with clear, specific questions for better results</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-container" style="display: none;">
+                <div id="chat-messages"></div>
+                <form id="chat-form" class="input-area">
+                    <div class="input-wrapper">
+                        <input type="text" id="user-input" placeholder="Ask Astro anything..." autocomplete="off">
+                        <div class="chat-tools">
+                            <label class="search-toggle">
+                                <input type="checkbox" id="enable-search">
+                                <span class="toggle-label">🔍 Search</span>
+                            </label>
+                            <button type="button" class="tool-btn" id="translate-btn" title="Translate">
+                                <i class="fas fa-language"></i>
+                            </button>
+                            <button type="button" class="tool-btn" id="format-code-btn" title="Format Code">
+                                <i class="fas fa-code"></i>
+                            </button>
+                            <button type="button" class="tool-btn" id="save-chat-btn" title="Save Chat">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button type="button" class="tool-btn" id="share-chat-btn" title="Share Chat">
+                                <i class="fas fa-share-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </form>
+                <div class="chat-disclaimer">
+                    ⚠️ Note: Astro AI can make mistakes. Please verify any important information from reliable sources.
+                </div>
             </div>
         </main>
-    </div>
-
-    <div id="conversation-manager" class="modal conversation-manager-modal">
-        <div class="modal-content">
-            <button id="close-manager">
-                <i class="fas fa-times"></i>
-            </button>
-            <div class="manager-header">
-                <h2>Manage Conversations</h2>
-                <input type="text" class="search-conversations" placeholder="Search conversations...">
-            </div>
-            
-            <div class="conversation-list" id="conversation-list">
-                <!-- Conversations will be inserted here -->
-            </div>
-            
-            <div class="manager-actions">
-                <button class="conversation-action-btn" id="new-conversation-btn">
-                    <i class="fas fa-plus"></i> New Conversation
-                </button>
-            </div>
-        </div>
     </div>
     
     <!-- Add before closing body tag -->
