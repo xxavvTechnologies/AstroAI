@@ -860,18 +860,26 @@ function updateChatHeader() {
     const existingBar = document.querySelector('.conversation-bar');
     if (existingBar) existingBar.remove();
     
-    const managerBtn = document.createElement('button');
-    managerBtn.className = 'conversation-manager-btn';
-    managerBtn.innerHTML = '<i class="fas fa-bars"></i> Conversations';
-    managerBtn.addEventListener('click', () => {
-        const manager = document.getElementById('conversation-manager');
-        if (manager) {
-            manager.classList.add('active');
-            updateConversationManager();
+    // Add menu toggle for mobile
+    const menuToggle = document.createElement('button');
+    menuToggle.className = 'menu-toggle';
+    menuToggle.innerHTML = '<i class="fas fa-bars"></i>';
+    menuToggle.addEventListener('click', toggleSidebar);
+    
+    const sidebar = document.querySelector('.sidebar');
+    document.body.appendChild(menuToggle);
+    
+    // Close sidebar when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!sidebar.contains(e.target) && !menuToggle.contains(e.target)) {
+            sidebar.classList.remove('open');
         }
     });
-    
-    chatMessages.parentElement.insertBefore(managerBtn, chatMessages);
+}
+
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    sidebar.classList.toggle('open');
 }
 
 // Update the initialization code
@@ -1088,16 +1096,51 @@ function showChatInterface() {
         chatContainer.style.display = 'flex';
     }
     
-    // Add safety check for conversation manager button
+    // Create conversation manager modal if it doesn't exist
+    let manager = document.getElementById('conversation-manager');
+    if (!manager) {
+        manager = document.createElement('div');
+        manager.id = 'conversation-manager';
+        manager.className = 'modal';
+        manager.innerHTML = `
+            <div class="modal-content">
+                <h2>Conversations</h2>
+                <button id="close-manager" class="close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+                <input type="text" class="search-conversations" placeholder="Search conversations...">
+                <div id="conversation-list" class="conversation-list"></div>
+            </div>
+        `;
+        document.body.appendChild(manager);
+        
+        // Add event listeners for the new elements
+        manager.querySelector('#close-manager').addEventListener('click', () => {
+            manager.classList.remove('active');
+        });
+        
+        manager.querySelector('.search-conversations').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            manager.querySelectorAll('.conversation-item').forEach(item => {
+                const title = item.querySelector('.conversation-title').textContent.toLowerCase();
+                item.style.display = title.includes(searchTerm) ? 'flex' : 'none';
+            });
+        });
+    }
+    
+    // Add conversation manager button with safety check
     const managerBtn = document.querySelector('.conversation-manager-btn');
-    if (managerBtn) {
-        managerBtn.addEventListener('click', () => {
-            const manager = document.getElementById('conversation-manager');
+    if (!managerBtn) {
+        const btn = document.createElement('button');
+        btn.className = 'conversation-manager-btn';
+        btn.innerHTML = '<i class="fas fa-folder"></i> Manage Chats';
+        btn.addEventListener('click', () => {
             if (manager) {
                 manager.classList.add('active');
                 updateConversationManager();
             }
         });
+        document.querySelector('.sidebar-content').insertBefore(btn, document.querySelector('.conversation-list'));
     }
 }
 
@@ -1349,6 +1392,26 @@ function loadScript(src) {
         document.head.appendChild(script);
     });
 }
+
+// Add menu toggle functionality
+document.addEventListener('DOMContentLoaded', () => {
+    const menuToggle = document.querySelector('.menu-toggle');
+    const sidebar = document.querySelector('.sidebar');
+    
+    if (menuToggle && sidebar) {
+        menuToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidebar.classList.toggle('open');
+        });
+
+        // Close sidebar when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!sidebar.contains(e.target) && !menuToggle.contains(e.target)) {
+                sidebar.classList.remove('open');
+            }
+        });
+    }
+});
 
 
 
