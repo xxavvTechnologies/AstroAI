@@ -1,0 +1,43 @@
+.space-background {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+}
+
+.stars {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  box-shadow: 
+    1px 1px #fff,
+    2px 2px #fff,
+    3px 3px #fff,
+    4px 4px #fff;
+  animation: animStar 50s linear infinite;
+}
+
+.twinkling {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%);
+  animation: move-twinkle-back 200s linear infinite;
+}
+
+@keyframes move-twinkle-back {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -10000px 5000px;
+  }
+}
+
+@keyframes animStar {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-2000px);
+  }
+}

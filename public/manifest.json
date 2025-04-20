@@ -1,0 +1,15 @@
+{
+  "short_name": "Astro",
+  "name": "Astro AI Assistant",
+  "icons": [
+    {
+      "src": "https://d2zcpib8duehag.cloudfront.net/Astro.png",
+      "type": "image/png",
+      "sizes": "32x32 192x192 512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#9e00ff",
+  "background_color": "#ffffff"
+}
