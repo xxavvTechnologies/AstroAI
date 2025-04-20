@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Image, FileText, Mic, Star, Share2, Upload, Settings, Moon, Sun, LogOut, Brain, Clock, Menu, UserCog, HelpCircle } from 'lucide-react';
+import { MessageSquare, Send, FileText, Mic, Settings, Moon, Sun, LogOut, Brain, Clock, Menu, UserCog, HelpCircle } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import AutoResizeTextarea from './AutoResizeTextarea';
 import MessageContent from './MessageContent';
 import { Message } from '../types/message';

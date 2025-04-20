@@ -10,15 +10,6 @@ interface ChatResponse {
   history: ChatHistory[];
 }
 
-interface NLPCloudError {
-  response?: {
-    status?: number;
-    data?: {
-      detail?: string;
-    };
-  };
-}
-
 export class LimitError extends Error {
   constructor(message: string) {
     super(message);
