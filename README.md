@@ -1,6 +1,6 @@
-# AstroAI
+# Astro
 
-AstroAI is an interactive AI assistant with a space-themed interface. This project provides a responsive web application for conversing with an AI assistant named Astro.
+Astro is an interactive AI assistant with a space-themed interface. This project provides a responsive web application for conversing with an AI assistant named Astro.
 
 ## Version 3.1.0 Updates
 
@@ -43,8 +43,8 @@ AstroAI is an interactive AI assistant with a space-themed interface. This proje
 ### Installation
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/astroai.git
-cd astroai
+git clone https://github.com/yourusername/Astro.git
+cd Astro
 ```
 
 2. Install dependencies
@@ -72,5 +72,5 @@ Additional documentation on specific features:
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
-- The AstroAI team
+- The Astro team
 - Contributors to the open-source libraries used in this project

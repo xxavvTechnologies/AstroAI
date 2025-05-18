@@ -1,7 +1,7 @@
-# AstroAI v3.1.0 - Canvas Feature
+# Astro v3.1.0 - Canvas Feature
 
 ## Overview
-The Canvas feature in AstroAI v3.1.0 allows for interactive content editing directly within chat messages. This is similar to Claude's canvas feature and provides a way for users to edit code, text, or other content provided by Astro.
+The Canvas feature in Astro v3.1.0 allows for interactive content editing directly within chat messages. This is similar to Claude's canvas feature and provides a way for users to edit code, text, or other content provided by Astro.
 
 ## How It Works
 When Astro includes content between double ampersands (`&& content &&`), this content will be rendered as an interactive canvas that users can edit, update, or download.

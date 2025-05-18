@@ -87,7 +87,7 @@ const Canvas: React.FC<CanvasProps> = ({ content, id, onUpdate, onClose }) => {
           <div className="bg-indigo-100 dark:bg-indigo-900 w-6 h-6 rounded-md flex items-center justify-center">
             <Edit size={14} className="text-indigo-600 dark:text-indigo-400" />
           </div>
-          <span className="font-medium text-gray-700 dark:text-gray-300">AstroAI Canvas</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">Astro Canvas</span>
         </div>
         
         <div className="flex items-center gap-2">

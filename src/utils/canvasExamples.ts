@@ -40,7 +40,7 @@ console.log('Total:', total);
 
   dataExample: `&&
 {
-  "name": "AstroAI",
+  "name": "Astro",
   "version": "3.1.0",
   "features": [
     "Interactive Canvas",
