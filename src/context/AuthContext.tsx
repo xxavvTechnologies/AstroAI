@@ -1,12 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, googleProvider, githubProvider } from '../config/firebase';
-import { 
-  signInWithEmailAndPassword, 
-  signInWithPopup,
-  signOut, 
-  onAuthStateChanged,
-  User 
-} from 'firebase/auth';
+import supabase from '../config/supabase';
+import { User, Session, AuthError } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -36,19 +30,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    // Set up initial session and user state
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
+    
+    // Get current session on initial load
+    const getCurrentSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
       setLoading(false);
-    });
-    return unsubscribe;
+    };
+    
+    getCurrentSession();
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const handleAuthError = (error: any) => {
+  const handleAuthError = (error: AuthError) => {
     console.error('Auth error:', error);
-    if (error.code === 'auth/popup-closed-by-user') {
+    
+    // Map Supabase error messages to user-friendly messages
+    if (error.message === 'User cancelled the login flow') {
       setAuthError('Login attempt was cancelled');
-    } else if (error.code === 'auth/account-exists-with-different-credential') {
-      setAuthError('An account already exists with the same email address but different sign-in credentials');
+    } else if (error.message.includes('Email link is invalid or has expired')) {
+      setAuthError('Invalid login link or link has expired');
     } else {
       setAuthError(error.message);
     }
@@ -56,34 +67,56 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    if (error) {
+      handleAuthError(error);
+    }
   };
 
   const logout = async () => {
-    await signOut(auth);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   const loginWithGoogle = async () => {
     try {
       setAuthError(null);
-      googleProvider.setCustomParameters({
-        prompt: 'select_account'
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
       });
-      await signInWithPopup(auth, googleProvider);
+      
+      if (error) {
+        handleAuthError(error);
+      }
     } catch (error) {
-      handleAuthError(error);
+      handleAuthError(error as AuthError);
     }
   };
 
   const loginWithGithub = async () => {
     try {
       setAuthError(null);
-      githubProvider.setCustomParameters({
-        prompt: 'select_account'
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: window.location.origin
+        }
       });
-      await signInWithPopup(auth, githubProvider);
+      
+      if (error) {
+        handleAuthError(error);
+      }
     } catch (error) {
-      handleAuthError(error);
+      handleAuthError(error as AuthError);
     }
   };
 

@@ -149,7 +149,7 @@ const AstroUI: React.FC<AstroUIProps> = ({ onSendMessage, messages, isLimitReach
         messageId,
         isPositive,
         timestamp: Date.now(),
-        userId: user?.uid,
+        userId: user?.id,
         content: message.content.slice(0, 500) // Limit content length
       });
     } catch (error) {

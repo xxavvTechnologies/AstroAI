@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Github } from 'lucide-react';
+import supabase from '../config/supabase';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -9,6 +10,21 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login, loginWithGoogle, loginWithGithub, authError, setAuthError } = useAuth();
   const navigate = useNavigate();
+
+  // Check for OAuth redirect response
+  useEffect(() => {
+    // Handle the OAuth redirect, which will be processed by the AuthContext's onAuthStateChange listener
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') {
+        // Successfully signed in after OAuth redirect
+        navigate('/');
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +44,7 @@ const LoginPage = () => {
       setIsLoading(true);
       setAuthError(null);
       await (provider === 'google' ? loginWithGoogle() : loginWithGithub());
-      navigate('/');
+      // No need to navigate here as the redirect will happen automatically with Supabase OAuth
     } catch (error) {
       // Error is handled in AuthContext
       setIsLoading(false);
