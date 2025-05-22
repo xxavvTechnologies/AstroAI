@@ -4,6 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AstroUI from './components/AstroUI';
 import LoginPage from './pages/LoginPage';
+import AuthRequired from './components/AuthRequired';
 import WelcomeModal from './components/WelcomeModal';
 import FeatureTip from './components/FeatureTip';
 import { sendMessage, retryLastMessage, LimitError } from './services/chatService';
@@ -12,20 +13,6 @@ import { hasReachedLimit } from './utils/characterLimit';
 import { modes } from './services/modeService';
 import { testCanvasFeature } from './utils/canvasTest';
 import type { Mode } from './types/mode';
-
-const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
-  
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-  
-  if (!user) {
-    return <Navigate to="/login" />;
-  }
-  
-  return <>{children}</>;
-};
 
 function App() {
   const { messages, setMessages, addMessage, editMessageAndTruncate, addTestCanvasMessage } = useMessageStore();
@@ -296,7 +283,7 @@ function App() {
             <Route 
               path="/" 
               element={
-                <PrivateRoute>
+                <AuthRequired>
                   <AstroUI 
                     onSendMessage={handleSendMessage} 
                     messages={messages} 
@@ -306,7 +293,7 @@ function App() {
                     onCanvasUpdate={handleCanvasUpdate}
                     isSearching={isSearching}
                   />
-                </PrivateRoute>
+                </AuthRequired>
               } 
             />
           </Routes>

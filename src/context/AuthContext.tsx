@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import supabase from '../config/supabase';
 import { User, Session, AuthError } from '@supabase/supabase-js';
+import { getRedirectUrl } from '../utils/authRedirect';
 
 interface AuthContextType {
   user: User | null;
@@ -9,6 +10,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithGithub: () => Promise<void>;
+  loginWithTwitter: () => Promise<void>;
   authError: string | null;
   setAuthError: React.Dispatch<React.SetStateAction<string | null>>;
 }
@@ -20,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   loginWithGoogle: async () => {},
   loginWithGithub: async () => {},
+  loginWithTwitter: async () => {},
   authError: null,
   setAuthError: () => {},
 });
@@ -90,7 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: getRedirectUrl()
         }
       });
       
@@ -108,7 +111,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: getRedirectUrl()
+        }
+      });
+      
+      if (error) {
+        handleAuthError(error);
+      }
+    } catch (error) {
+      handleAuthError(error as AuthError);
+    }
+  };
+
+  const loginWithTwitter = async () => {
+    try {
+      setAuthError(null);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'twitter',
+        options: {
+          redirectTo: getRedirectUrl()
         }
       });
       
@@ -128,6 +149,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       logout,
       loginWithGoogle,
       loginWithGithub,
+      loginWithTwitter,
       authError,
       setAuthError 
     }}>

@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { Github } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Github, Twitter } from 'lucide-react';
 import supabase from '../config/supabase';
+import { getAndClearRedirectPath, saveRedirectPath } from '../utils/authRedirect';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, loginWithGoogle, loginWithGithub, authError, setAuthError } = useAuth();
+  const { login, loginWithGoogle, loginWithGithub, loginWithTwitter, authError, setAuthError } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Save the previous location if it was passed via state
+  useEffect(() => {
+    if (location.state && location.state.from) {
+      saveRedirectPath(location.state.from);
+    }
+  }, [location]);
 
   // Check for OAuth redirect response
   useEffect(() => {
@@ -17,7 +26,8 @@ const LoginPage = () => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') {
         // Successfully signed in after OAuth redirect
-        navigate('/');
+        const redirectPath = getAndClearRedirectPath();
+        navigate(redirectPath);
       }
     });
 
@@ -32,18 +42,25 @@ const LoginPage = () => {
       setIsLoading(true);
       setAuthError(null);
       await login(email, password);
-      navigate('/');
+      const redirectPath = getAndClearRedirectPath();
+      navigate(redirectPath);
     } catch (err) {
       setIsLoading(false);
       setAuthError('Invalid Nova ID credentials');
     }
   };
 
-  const handleSocialLogin = async (provider: 'google' | 'github') => {
+  const handleSocialLogin = async (provider: 'google' | 'github' | 'twitter') => {
     try {
       setIsLoading(true);
       setAuthError(null);
-      await (provider === 'google' ? loginWithGoogle() : loginWithGithub());
+      if (provider === 'google') {
+        await loginWithGoogle();
+      } else if (provider === 'github') {
+        await loginWithGithub();
+      } else if (provider === 'twitter') {
+        await loginWithTwitter();
+      }
       // No need to navigate here as the redirect will happen automatically with Supabase OAuth
     } catch (error) {
       // Error is handled in AuthContext
@@ -123,7 +140,7 @@ const LoginPage = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <button
               type="button"
               onClick={() => handleSocialLogin('google')}
@@ -148,6 +165,19 @@ const LoginPage = () => {
               <Github size={20} />
               <span className="text-sm font-medium">
                 {isLoading ? 'Connecting...' : 'GitHub'}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSocialLogin('twitter')}
+              disabled={isLoading}
+              className={`flex items-center justify-center gap-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                isLoading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              <Twitter size={20} />
+              <span className="text-sm font-medium">
+                {isLoading ? 'Connecting...' : 'Twitter'}
               </span>
             </button>
           </div>
