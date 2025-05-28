@@ -41,7 +41,7 @@ console.log('Total:', total);
   dataExample: `&&
 {
   "name": "Astro",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "features": [
     "Interactive Canvas",
     "Message Animations",

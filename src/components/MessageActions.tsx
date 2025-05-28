@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Copy, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { useAnimation } from '../context/AnimationContext';
 import './MessageActions.css';
 
 interface MessageActionsProps {
@@ -17,6 +18,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
   onRetry,
   onFeedback
 }) => {
+  const { isAnimationsEnabled } = useAnimation();
   const [showFeedbackSent, setShowFeedbackSent] = useState<'positive' | 'negative' | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -50,12 +52,11 @@ const MessageActions: React.FC<MessageActionsProps> = ({
       </div>
     );
   }
-
   return (
-    <div className="message-actions">
+    <div className={`message-actions ${isAnimationsEnabled ? 'animate-slide-in' : ''}`}>
       <button 
         onClick={handleCopy}
-        className="message-action-button"
+        className={`message-action-button ${isAnimationsEnabled ? 'hover:animate-bounce-gentle' : ''}`}
         aria-label="Copy message"
       >
         <Copy size={14} className={copied ? "text-green-500" : "text-gray-500 dark:text-gray-400"} />
@@ -64,10 +65,9 @@ const MessageActions: React.FC<MessageActionsProps> = ({
       
       <button 
         onClick={onRetry}
-        className="message-action-button"
+        className={`message-action-button ${isAnimationsEnabled ? 'hover:animate-spin-gentle' : ''}`}
         aria-label="Regenerate response"
-      >
-        <RefreshCw size={14} className="text-gray-500 dark:text-gray-400" />
+      >        <RefreshCw size={14} className="text-gray-500 dark:text-gray-400" />
         <span className="action-tooltip">Retry</span>
       </button>
       
@@ -75,7 +75,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
       
       <button 
         onClick={() => handleFeedback(true)}
-        className="message-action-button"
+        className={`message-action-button ${isAnimationsEnabled ? 'hover:animate-pulse-glow' : ''}`}
         aria-label="Rate response as helpful"
       >
         <ThumbsUp size={14} className="text-gray-500 dark:text-gray-400" />
@@ -84,7 +84,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
       
       <button 
         onClick={() => handleFeedback(false)}
-        className="message-action-button"
+        className={`message-action-button ${isAnimationsEnabled ? 'hover:animate-pulse-glow' : ''}`}
         aria-label="Rate response as not helpful"
       >
         <ThumbsDown size={14} className="text-gray-500 dark:text-gray-400" />

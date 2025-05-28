@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Rocket, Sparkles, Search, PanelTopOpen } from 'lucide-react';
+import { useAnimation } from '../context/AnimationContext';
 import VersionBadge from './VersionBadge';
 
 interface WelcomeModalProps {
@@ -9,18 +10,24 @@ interface WelcomeModalProps {
 }
 
 const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, onTestCanvas }) => {
+  const { isAnimationsEnabled } = useAnimation();
+  
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full mx-4 p-6 shadow-xl">
+    <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 ${
+      isAnimationsEnabled ? 'animate-fade-in' : ''
+    }`}>
+      <div className={`bg-white dark:bg-gray-800 rounded-xl max-w-md w-full mx-4 p-6 shadow-xl ${
+        isAnimationsEnabled ? 'animate-modal-in' : ''
+      }`}>
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
             <img src="https://d2zcpib8duehag.cloudfront.net/Astro.png" alt="Astro" className="w-8 h-8" />
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold font-space text-gray-900 dark:text-white">Welcome to Astro</h2>
-                <VersionBadge version="3.1.0" />
+                <VersionBadge version="3.2.0" />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">Exploring the cosmos, one question at a time</p>
             </div>
@@ -32,12 +39,12 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, onTestCanv
         
         <div className="space-y-4 text-gray-600 dark:text-gray-300 font-jakarta">
           <p>
-            Welcome to Astro v3.1.0! We've improved your cosmic AI assistant with enhanced features and a more immersive experience.
+            Welcome to Astro v3.2.0! We've improved your cosmic AI assistant with enhanced features and a more immersive experience.
           </p>
           
           <div className="mt-4">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-              <Sparkles size={16} className="text-indigo-500" /> What's new in v3.1.0:
+              <Sparkles size={16} className="text-indigo-500" /> What's new in v3.2.0:
             </h3>
             <ul className="mt-2 space-y-2 ml-5 list-disc">
               <li><strong>New Flagship Model - ModelA 8-Pro</strong> - Our most advanced AI model yet</li>

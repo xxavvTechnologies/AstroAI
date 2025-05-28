@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
+import { AnimationProvider } from './context/AnimationContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AstroUI from './components/AstroUI';
 import LoginPage from './pages/LoginPage';
@@ -13,13 +14,15 @@ import { hasReachedLimit } from './utils/characterLimit';
 import { modes } from './services/modeService';
 import { testCanvasFeature } from './utils/canvasTest';
 import type { Mode } from './types/mode';
+import './components/animations.css';
 
 function App() {
   const { messages, setMessages, addMessage, editMessageAndTruncate, addTestCanvasMessage } = useMessageStore();
   const [showWelcome, setShowWelcome] = useState(false);
   const [isLimitReached, setIsLimitReached] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showFeatureTip, setShowFeatureTip] = useState<'canvas' | 'messageActions' | null>(null);
+  const [isSearching, setIsSearching] = useState(false);  const [showFeatureTip, setShowFeatureTip] = useState<'canvas' | 'messageActions' | null>(null);
+  const [lastUsedMode, setLastUsedMode] = useState<Mode | null>(null);
+  const [showModeChangeIndicator, setShowModeChangeIndicator] = useState<string | null>(null);
 
   useEffect(() => {
     const hasSeenWelcome = localStorage.getItem('astro-welcome-seen');
@@ -59,9 +62,17 @@ function App() {
       localStorage.setItem('astro-message-actions-tip-seen', 'true');
     }
     setShowFeatureTip(null);
-  };
-
-  const handleSendMessage = async (message: string, mode: Mode) => {
+  };  const handleSendMessage = async (message: string, mode: Mode) => {
+    // Check if the mode has changed since the last message
+    const isModeChanged = lastUsedMode !== null && lastUsedMode.id !== mode.id;
+    
+    // Show mode change indicator if mode has changed
+    if (isModeChanged) {
+      setShowModeChangeIndicator(`Switching to ${mode.name} mode and sending context...`);
+      // Hide the indicator after 3 seconds
+      setTimeout(() => setShowModeChangeIndicator(null), 3000);
+    }
+    
     // Add user message
     const userMessage = addMessage({ role: 'user', content: message });
     
@@ -89,7 +100,12 @@ function App() {
           return acc;
         }, []);
 
-      const response = await sendMessage(message, history, mode);
+      // Force sending context if mode has changed
+      const response = await sendMessage(message, history, mode, isModeChanged);
+      
+      // Update the last used mode
+      setLastUsedMode(mode);
+      
       setIsSearching(false);
       
       setMessages(prev => {
@@ -191,12 +207,20 @@ function App() {
       editMessageAndTruncate(messageId, updatedContent);
     }
   };
-  
-  const handleRetryMessage = async () => {
+    const handleRetryMessage = async (mode: Mode) => {
     // Get the last two messages (user and assistant)
     const lastMessages = messages.slice(-2);
     if (lastMessages.length < 2 || lastMessages[1].role !== 'assistant') {
       return; // Nothing to retry
+    }
+      // Check if the mode has changed since the last message
+    const isModeChanged = lastUsedMode !== null && lastUsedMode.id !== mode.id;
+    
+    // Show mode change indicator if mode has changed
+    if (isModeChanged) {
+      setShowModeChangeIndicator(`Switching to ${mode.name} mode for retry...`);
+      // Hide the indicator after 3 seconds
+      setTimeout(() => setShowModeChangeIndicator(null), 3000);
     }
     
     // Mark the assistant message as loading
@@ -209,8 +233,7 @@ function App() {
       }
       return newMessages;
     });
-    
-    try {
+      try {
       // Format the history for the retry
       const history = messages
         .slice(0, -2) // Exclude the last question-answer pair
@@ -226,13 +249,17 @@ function App() {
       
       // Use the last user message
       const userMessage = messages[messages.length - 2];
-      const mode = modes.general; // Default to general mode
       
       if (mode.id === 'search') {
         setIsSearching(true);
       }
       
-      const response = await retryLastMessage(history, mode);
+      // Force sending context if mode has changed, pass the provided mode
+      const response = await retryLastMessage(history, mode, isModeChanged);
+      
+      // Update the last used mode
+      setLastUsedMode(mode);
+      
       setIsSearching(false);
       
       // Update the assistant message with the new response
@@ -261,42 +288,43 @@ function App() {
       });
     }
   };
-
   return (
     <Router>
       <AuthProvider>
         <ThemeProvider>
-          <WelcomeModal 
-            isOpen={showWelcome} 
-            onClose={handleCloseWelcome} 
-            onTestCanvas={addTestCanvasMessage} 
-          />
-          
-          {showFeatureTip && (
-            <FeatureTip 
-              feature={showFeatureTip} 
-              onDismiss={handleDismissFeatureTip} 
+          <AnimationProvider>
+            <WelcomeModal 
+              isOpen={showWelcome} 
+              onClose={handleCloseWelcome} 
+              onTestCanvas={addTestCanvasMessage} 
             />
-          )}
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route 
-              path="/" 
-              element={
-                <AuthRequired>
-                  <AstroUI 
-                    onSendMessage={handleSendMessage} 
-                    messages={messages} 
-                    isLimitReached={isLimitReached}
-                    onEditMessage={editMessageAndTruncate}
-                    onRetryMessage={handleRetryMessage}
-                    onCanvasUpdate={handleCanvasUpdate}
-                    isSearching={isSearching}
-                  />
-                </AuthRequired>
-              } 
-            />
-          </Routes>
+            
+            {showFeatureTip && (
+              <FeatureTip 
+                feature={showFeatureTip} 
+                onDismiss={handleDismissFeatureTip} 
+              />
+            )}
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route 
+                path="/" 
+                element={
+                  <AuthRequired>                    <AstroUI 
+                      onSendMessage={handleSendMessage} 
+                      messages={messages} 
+                      isLimitReached={isLimitReached}
+                      modeChangeIndicator={showModeChangeIndicator}
+                      onEditMessage={editMessageAndTruncate}
+                      onRetryMessage={handleRetryMessage}
+                      onCanvasUpdate={handleCanvasUpdate}
+                      isSearching={isSearching}
+                    />
+                  </AuthRequired>
+                } 
+              />
+            </Routes>
+          </AnimationProvider>
         </ThemeProvider>
       </AuthProvider>
     </Router>

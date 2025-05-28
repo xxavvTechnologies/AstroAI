@@ -22,7 +22,8 @@ export class LimitError extends Error {
 
 export const retryLastMessage = async (
   history: ChatHistory[],
-  mode: Mode
+  mode: Mode,
+  forceSendContext: boolean = false
 ): Promise<ChatResponse> => {
   if (history.length === 0) {
     throw new Error('No message to retry');
@@ -35,17 +36,23 @@ export const retryLastMessage = async (
   const newHistory = history.slice(0, -1);
   
   // Resend the last message
-  return sendMessage(lastMessage.input, newHistory, mode);
+  return sendMessage(lastMessage.input, newHistory, mode, forceSendContext);
 };
 
 export const sendMessage = async (
   message: string, 
   history: ChatHistory[],
-  mode: Mode
+  mode: Mode,
+  forceSendContext: boolean = false
 ): Promise<ChatResponse> => {
   try {
     if (hasReachedLimit()) {
       throw new LimitError('Daily character limit reached');
+    }
+
+    // Validate message is not empty
+    if (!message || message.trim() === '') {
+      throw new Error('Message cannot be empty');
     }
 
     let searchResults: { title: string; link: string; snippet: string; }[] = [];
@@ -57,9 +64,7 @@ export const sendMessage = async (
         console.error('Search failed:', error);
         // Continue without search results if search fails
       }
-    }
-
-    // Create context with search results for the AI
+    }    // Create context with search results for the AI
     let contextWithSearch = getModeContext(mode);
     
     if (searchResults.length > 0) {
@@ -68,32 +73,51 @@ export const sendMessage = async (
         contextWithSearch += `\n[${index + 1}] "${result.title}"\nURL: ${result.link}\nDescription: ${result.snippet}\n`;
       });
       contextWithSearch += '\n\nPlease use these search results to provide an informed response to the user query.';
-    }    // Convert history to the format expected by Bedrock
-    const historyForBedrock = history.map(item => [
-      { role: 'user', content: item.input },
-      { role: 'assistant', content: item.response }
-    ]).flat();    const response = await fetch(`${process.env.REACT_APP_API_GATEWAY_URL}/chat`, {
+    }    // Only send system context every 10 messages, on first message, or when explicitly forced (like mode changes)
+    const shouldSendContext = history.length === 0 || history.length % 10 === 0 || forceSendContext;
+    const contextToSend = shouldSendContext ? contextWithSearch : undefined;// Convert history to the format expected by Claude
+    // Only send the last 7 messages (3 exchanges) to save tokens and reduce payload size
+    const recentHistory = history.slice(-7);
+    const historyForBedrock = recentHistory
+      .filter(item => item.input && item.input.trim() && item.response && item.response.trim())
+      .map(item => [
+        { role: 'user', content: item.input.trim() },
+        { role: 'assistant', content: item.response.trim() }
+      ]).flat();const requestBody = {
+      message: message.trim(),
+      context: contextToSend,
+      history: historyForBedrock
+    };
+
+    console.log('Sending to API:', JSON.stringify(requestBody, null, 2)); // Debug log
+
+    const response = await fetch(`${process.env.REACT_APP_API_GATEWAY_URL}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        message,
-        context: contextWithSearch,
-        history: historyForBedrock
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: `HTTP ${response.status}: ${errorText}` };
+      }
       throw new Error(errorData.message || `API error: ${response.status}`);
     }
 
     const data = await response.json();
+    console.log('API Response:', data); // Debug log
     
     if (!data?.generated_text) {
+      console.error('Unexpected response format:', data);
       throw new Error('Invalid response from API');
-    }    updateCharacterUsage(data.generated_text.length);
+    }updateCharacterUsage(data.generated_text.length);
     
     // Add the new message to history
     const newHistory = [...history, { input: message, response: data.generated_text }];

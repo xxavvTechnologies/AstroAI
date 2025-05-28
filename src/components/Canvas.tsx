@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Edit, Copy, Download, X, RefreshCw, Undo } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Edit, Copy, Download, X, RefreshCw, Undo, Sparkles, Code, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import './Canvas.css';
 
 interface CanvasProps {
@@ -14,8 +14,22 @@ const Canvas: React.FC<CanvasProps> = ({ content, id, onUpdate, onClose }) => {
   const [canvasContent, setCanvasContent] = useState(content);
   const [isUpdating, setIsUpdating] = useState(false);
   const [userPrompt, setUserPrompt] = useState('');
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [originalContent, setOriginalContent] = useState(content);
+  const [canvasType, setCanvasType] = useState<'code' | 'text' | 'data'>('text');
+
+  useEffect(() => {
+    // Auto-detect content type
+    if (content.includes('```') || content.includes('function') || content.includes('class ') || content.includes('import ')) {
+      setCanvasType('code');
+    } else if (content.includes('|') && content.includes('-') && content.split('\n').length > 3) {
+      setCanvasType('data');
+    } else {
+      setCanvasType('text');
+    }
+  }, [content]);
 
   const handleEdit = () => {
     setEditMode(true);
@@ -44,9 +58,13 @@ const Canvas: React.FC<CanvasProps> = ({ content, id, onUpdate, onClose }) => {
     setCanvasContent(originalContent);
     setEditMode(false);
   };
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(canvasContent);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(canvasContent);
+      // Add visual feedback here if desired
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
   };
 
   const handleDownload = () => {
@@ -78,132 +96,210 @@ const Canvas: React.FC<CanvasProps> = ({ content, id, onUpdate, onClose }) => {
   const handleRestore = () => {
     setCanvasContent(originalContent);
   };
+  const getCanvasIcon = () => {
+    switch (canvasType) {
+      case 'code': return <Code size={16} className="text-blue-500" />;
+      case 'data': return <FileText size={16} className="text-green-500" />;
+      default: return <Edit size={16} className="text-purple-500" />;
+    }
+  };
+  const getCanvasTypeLabel = () => {
+    switch (canvasType) {
+      case 'code': return 'Code Canvas';
+      case 'data': return 'Data Canvas';
+      default: return 'Text Canvas';
+    }
+  };
+
+  const getPreviewText = () => {
+    if (isExpanded) return canvasContent;
+    
+    const lines = canvasContent.split('\n');
+    if (lines.length <= 4) return canvasContent;
+    
+    return lines.slice(0, 4).join('\n') + '\n...';
+  };
+
+  const shouldShowExpandButton = () => {
+    const lines = canvasContent.split('\n');
+    return lines.length > 4 || canvasContent.length > 300;
+  };
 
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg w-full max-w-3xl mx-auto my-4">
-      {/* Canvas Header */}
-      <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="bg-indigo-100 dark:bg-indigo-900 w-6 h-6 rounded-md flex items-center justify-center">
-            <Edit size={14} className="text-indigo-600 dark:text-indigo-400" />
+    <div className="canvas-container bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-xl backdrop-blur-sm">
+      {/* Enhanced Header */}
+      <div className="canvas-header bg-gradient-to-r from-purple-50 via-blue-50 to-indigo-50 dark:from-gray-800 dark:via-gray-750 dark:to-gray-800 border-b border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex items-center gap-3">
+          <div className="canvas-icon-container bg-white dark:bg-gray-700 rounded-lg p-2 shadow-sm">
+            {getCanvasIcon()}
           </div>
-          <span className="font-medium text-gray-700 dark:text-gray-300">Astro Canvas</span>
-        </div>
-        
-        <div className="flex items-center gap-2">
+          <div>
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">
+              {getCanvasTypeLabel()}
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Interactive • Editable • AI-Enhanced
+            </p>
+          </div>
+        </div>        
+        <div className="flex items-center gap-1">
           {!editMode ? (
             <>
               <button 
                 onClick={handleCopy} 
-                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                className="canvas-action-btn group"
                 title="Copy content"
               >
-                <Copy size={14} className="text-gray-500 dark:text-gray-400" />
+                <Copy size={16} className="text-gray-600 dark:text-gray-400 group-hover:text-blue-500 transition-colors" />
               </button>
               <button 
                 onClick={handleDownload} 
-                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                className="canvas-action-btn group"
                 title="Download content"
               >
-                <Download size={14} className="text-gray-500 dark:text-gray-400" />
+                <Download size={16} className="text-gray-600 dark:text-gray-400 group-hover:text-green-500 transition-colors" />
               </button>
               <button 
                 onClick={handleEdit} 
-                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                className="canvas-action-btn group"
                 title="Edit content"
               >
-                <Edit size={14} className="text-gray-500 dark:text-gray-400" />
+                <Edit size={16} className="text-gray-600 dark:text-gray-400 group-hover:text-purple-500 transition-colors" />
               </button>
               <button 
+                onClick={() => setShowPrompt(!showPrompt)} 
+                className="canvas-action-btn group"
+                title="AI Enhancement"
+              >
+                <Sparkles size={16} className="text-gray-600 dark:text-gray-400 group-hover:text-yellow-500 transition-colors" />
+              </button>
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+              <button 
                 onClick={onClose} 
-                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                className="canvas-action-btn group"
                 title="Close canvas"
               >
-                <X size={14} className="text-gray-500 dark:text-gray-400" />
+                <X size={16} className="text-gray-600 dark:text-gray-400 group-hover:text-red-500 transition-colors" />
               </button>
             </>
           ) : (
             <>
               <button 
                 onClick={handleCancel} 
-                className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                className="canvas-cancel-btn"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleSave} 
-                className="px-3 py-1 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800 rounded transition-colors flex items-center gap-1"
+                className="canvas-save-btn"
                 disabled={isUpdating}
               >
                 {isUpdating ? (
                   <>
-                    <RefreshCw size={12} className="animate-spin" />
+                    <RefreshCw size={14} className="animate-spin" />
                     <span>Saving...</span>
                   </>
                 ) : (
-                  <span>Save</span>
+                  <span>Save Changes</span>
                 )}
               </button>
               <button 
                 onClick={handleRestore} 
-                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                className="canvas-action-btn group"
                 title="Restore to original"
               >
-                <Undo size={14} className="text-gray-500 dark:text-gray-400" />
+                <Undo size={16} className="text-gray-600 dark:text-gray-400 group-hover:text-orange-500 transition-colors" />
               </button>
             </>
           )}
-        </div>
-      </div>
+        </div>      </div>
 
-      {/* Canvas Content */}
-      <div className="p-4">
+      {/* Enhanced Content Area */}
+      <div className="canvas-content p-6">
         {editMode ? (
-          <textarea 
-            ref={textareaRef}
-            className="w-full min-h-[200px] p-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            value={canvasContent}
-            onChange={(e) => setCanvasContent(e.target.value)}
-          />
-        ) : (
-          <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 dark:bg-gray-800 p-4 rounded-md border border-gray-200 dark:border-gray-700 overflow-x-auto">
-            {canvasContent}
-          </pre>
+          <div className="canvas-editor">
+            <textarea 
+              ref={textareaRef}
+              className="canvas-textarea w-full min-h-[300px] p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-y font-mono text-sm leading-relaxed shadow-inner"
+              value={canvasContent}
+              onChange={(e) => setCanvasContent(e.target.value)}
+              placeholder="Enter your content here..."
+            />
+          </div>        ) : (
+          <div className={`canvas-display ${canvasType === 'code' ? 'code-style' : canvasType === 'data' ? 'data-style' : 'text-style'}`}>
+            <div className="canvas-preview-container">
+              <pre className="canvas-pre whitespace-pre-wrap font-mono text-sm leading-relaxed overflow-x-auto">
+                {getPreviewText()}
+              </pre>
+              
+              {shouldShowExpandButton() && (
+                <div className="canvas-preview-actions mt-4 pt-4 border-t border-gray-200/50 dark:border-gray-600/50">                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="canvas-expand-btn text-sm text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors duration-200 flex items-center gap-2"
+                  >
+                    {isExpanded ? (
+                      <>
+                        <span>Show Less</span>
+                        <ChevronUp size={16} />
+                      </>
+                    ) : (
+                      <>
+                        <span>Show More</span>
+                        <ChevronDown size={16} />
+                      </>
+                    )}
+                  </button>
+                  
+                  <div className="canvas-stats text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    {canvasContent.split('\n').length} lines • {canvasContent.length} characters
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Canvas Footer - Prompt for updates */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex gap-2">
-          <input 
-            type="text" 
-            className="flex-1 p-2 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            placeholder="Ask Astro to modify or improve this canvas..."
-            value={userPrompt}
-            onChange={(e) => setUserPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleUpdatePrompt();
-              }
-            }}
-          />
-          <button 
-            className="px-3 py-1 bg-[#9e00ff] hover:bg-[#8300d4] text-white rounded transition-colors flex items-center gap-1"
-            onClick={handleUpdatePrompt}
-            disabled={isUpdating || !userPrompt.trim()}
-          >
-            {isUpdating ? (
-              <>
-                <RefreshCw size={14} className="animate-spin" />
-                <span>Processing...</span>
-              </>
-            ) : (
-              <span>Update</span>
-            )}
-          </button>
+      {/* AI Enhancement Prompt (Collapsible) */}
+      {(showPrompt || editMode) && (
+        <div className="canvas-footer bg-gradient-to-r from-purple-50 via-blue-50 to-indigo-50 dark:from-gray-800 dark:via-gray-750 dark:to-gray-800 border-t border-gray-200/50 dark:border-gray-700/50 p-4">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <input 
+                type="text" 
+                className="canvas-prompt-input w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder-gray-500 dark:placeholder-gray-400"
+                placeholder="✨ Ask Astro to enhance, modify, or improve this canvas..."
+                value={userPrompt}
+                onChange={(e) => setUserPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleUpdatePrompt();
+                  }
+                }}
+              />
+            </div>
+            <button 
+              className="canvas-update-btn px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all duration-200 flex items-center gap-2 font-medium shadow-lg hover:shadow-xl transform hover:scale-105"
+              onClick={handleUpdatePrompt}
+              disabled={isUpdating || !userPrompt.trim()}
+            >
+              {isUpdating ? (
+                <>
+                  <RefreshCw size={16} className="animate-spin" />
+                  <span>Enhancing...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={16} />
+                  <span>Enhance</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

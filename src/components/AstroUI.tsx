@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, FileText, Mic, Settings, Moon, Sun, LogOut, Brain, Clock, Menu, UserCog, HelpCircle, BadgeCheck, Edit } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useAnimation } from '../context/AnimationContext';
 import { useNavigate } from 'react-router-dom';
 import AutoResizeTextarea from './AutoResizeTextarea';
 import MessageContent from './MessageContent';
@@ -17,6 +18,7 @@ import { modes } from '../services/modeService';
 import type { Mode, ModeId } from '../types/mode';
 import VersionBadge from './VersionBadge';
 import MessageActions from './MessageActions';
+import ModeChangeIndicator from './ModeChangeIndicator';
 import { submitFeedback } from '../services/feedbackService';
 import './animations.css';
 
@@ -25,14 +27,16 @@ interface AstroUIProps {
   messages: Message[];
   isLimitReached: boolean;
   isSearching?: boolean;
+  modeChangeIndicator?: string | null;
   onEditMessage?: (messageId: string, newContent: string) => void;
-  onRetryMessage?: () => Promise<void>;
+  onRetryMessage?: (mode: Mode) => Promise<void>;
   onCanvasUpdate?: (messageId: string, canvasId: string, newContent: string, prompt?: string) => Promise<void>;
 }
 
-const AstroUI: React.FC<AstroUIProps> = ({ onSendMessage, messages, isLimitReached, isSearching, onEditMessage, onRetryMessage, onCanvasUpdate }) => {
+const AstroUI: React.FC<AstroUIProps> = ({ onSendMessage, messages, isLimitReached, isSearching, modeChangeIndicator, onEditMessage, onRetryMessage, onCanvasUpdate }) => {
   const { isDarkMode, toggleDarkMode } = useTheme();
   const { user, logout } = useAuth();
+  const { isAnimationsEnabled, animationSpeed } = useAnimation();
   const navigate = useNavigate();
   const [userInput, setUserInput] = useState('');
   const [isAnimating, setIsAnimating] = useState(false);
@@ -128,11 +132,10 @@ const AstroUI: React.FC<AstroUIProps> = ({ onSendMessage, messages, isLimitReach
     setCopiedMessageId(messageId);
     setTimeout(() => setCopiedMessageId(null), 2000);
   };
-  
-  const handleRetryMessage = async () => {
+    const handleRetryMessage = async () => {
     if (onRetryMessage) {
       try {
-        await onRetryMessage();
+        await onRetryMessage(currentMode);
       } catch (error) {
         console.error('Failed to retry message:', error);
       }
@@ -181,17 +184,20 @@ const AstroUI: React.FC<AstroUIProps> = ({ onSendMessage, messages, isLimitReach
         </button>
       ))}
     </div>
-  );
-
-  return (
+  );  return (
     <>
-      <div className={`flex min-h-screen h-[100dvh] ${isDarkMode ? 'dark' : ''}`}>
+      {/* Mode Change Indicator */}
+      {modeChangeIndicator && (
+        <ModeChangeIndicator message={modeChangeIndicator} />
+      )}
+      
+      <div className={`flex min-h-screen h-[100dvh] ${isDarkMode ? 'dark' : ''} ${isAnimationsEnabled ? 'animate-fade-in' : ''}`}>
         <div className="absolute inset-0 bg-gradient-to-b from-purple-900/5 to-indigo-900/5 pointer-events-none" />
         
         {/* Backdrop */}
         {isSidebarOpen && (
           <div 
-            className="fixed inset-0 bg-black/20 z-20 md:hidden transition-opacity"
+            className={`fixed inset-0 bg-black/20 z-20 md:hidden transition-opacity ${isAnimationsEnabled ? 'animate-fade-in' : ''}`}
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
@@ -199,7 +205,7 @@ const AstroUI: React.FC<AstroUIProps> = ({ onSendMessage, messages, isLimitReach
         {/* Sidebar - Mobile Responsive */}
         <div className={`fixed md:relative w-64 md:w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full z-30 transition-transform duration-300 ease-out ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`} ref={sidebarRef}>
+        } ${isAnimationsEnabled ? 'animate-slide-in-left' : ''}`} ref={sidebarRef}>
           <div className="p-4 flex items-center space-x-2">
             <div className="w-8 h-8">
               <img src="https://d2zcpib8duehag.cloudfront.net/Astro.png" alt="Astro" className="w-full h-full" />
@@ -207,7 +213,7 @@ const AstroUI: React.FC<AstroUIProps> = ({ onSendMessage, messages, isLimitReach
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-lg font-space">Astro</span>
-                <VersionBadge version="3.1.0" className="animate-pulse-subtle" />
+                <VersionBadge version="3.2.0" className="animate-pulse-subtle" />
               </div>
               <span className="text-xs text-gray-500 dark:text-gray-400">Your cosmic AI assistant</span>
             </div>
@@ -317,19 +323,24 @@ const AstroUI: React.FC<AstroUIProps> = ({ onSendMessage, messages, isLimitReach
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Chat Area */}
+          </div>          {/* Chat Area */}
           <div className="flex-1 overflow-y-auto p-2 md:p-4 bg-white dark:bg-gray-900" ref={chatContainerRef}>
             {messages.map((message, index) => (
               <div 
                 key={message.id || index} 
-                className={`flex mb-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                style={{ animationDelay: `${index * 0.1}s` }}
+                className={`flex mb-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'} ${
+                  isAnimationsEnabled ? 'animate-message-in' : ''
+                }`}
+                style={isAnimationsEnabled ? { 
+                  animationDelay: `${index * 0.1}s`,
+                  animationDuration: animationSpeed === 'slow' ? '0.8s' : animationSpeed === 'fast' ? '0.3s' : '0.5s'
+                } : {}}
               >
                 <div className="relative group message-container">
                   <div 
-                    className={`max-w-3xl rounded-lg p-4 animate-slide-in message-transition ${
+                    className={`max-w-3xl rounded-lg p-4 message-transition ${
+                      isAnimationsEnabled ? 'animate-scale-in hover:animate-glow' : ''
+                    } ${
                       message.role === 'user' 
                         ? 'bg-[#9e00ff] text-white' 
                         : 'bg-transparent text-gray-800 dark:text-gray-200'
@@ -370,29 +381,38 @@ const AstroUI: React.FC<AstroUIProps> = ({ onSendMessage, messages, isLimitReach
                 </div>
               </div>
             ))}
-          </div>
-
-          {/* Quick Actions */}
-          <div className="bg-white dark:bg-gray-900 p-2 md:p-4 flex justify-center space-x-2 animate-fade-in overflow-x-auto">
+          </div>          {/* Quick Actions */}
+          <div className={`bg-white dark:bg-gray-900 p-2 md:p-4 flex justify-center space-x-2 overflow-x-auto ${
+            isAnimationsEnabled ? 'animate-slide-up' : ''
+          }`}>
             {/* Make buttons scrollable on mobile */}
             <div className="flex space-x-2 pb-2 md:pb-0 snap-x snap-mandatory">
               <button 
                 onClick={() => handleQuickAction("Can you summarize the key points from our conversation?")}
-                className="snap-center shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full py-2 px-4 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-[#9e00ff]/50 flex items-center gap-2 transition-all duration-200 ease-out scale-transition group"
+                className={`snap-center shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full py-2 px-4 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-[#9e00ff]/50 flex items-center gap-2 transition-all duration-200 ease-out group ${
+                  isAnimationsEnabled ? 'animate-button-bounce hover:animate-pulse-glow' : ''
+                }`}
+                style={isAnimationsEnabled ? { animationDelay: '0.1s' } : {}}
               >
                 <FileText size={16} className="group-hover:text-[#9e00ff] transition-colors" />
                 <span className="dark:text-gray-300 group-hover:text-[#9e00ff] transition-colors whitespace-nowrap">Summarize chat</span>
               </button>
               <button 
                 onClick={() => handleQuickAction("Let's brainstorm some ideas about")}
-                className="snap-center shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full py-2 px-4 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-[#9e00ff]/50 flex items-center gap-2 transition-all duration-200 ease-out scale-transition group"
+                className={`snap-center shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full py-2 px-4 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-[#9e00ff]/50 flex items-center gap-2 transition-all duration-200 ease-out group ${
+                  isAnimationsEnabled ? 'animate-button-bounce hover:animate-pulse-glow' : ''
+                }`}
+                style={isAnimationsEnabled ? { animationDelay: '0.2s' } : {}}
               >
                 <MessageSquare size={16} className="group-hover:text-[#9e00ff] transition-colors" />
                 <span className="dark:text-gray-300 group-hover:text-[#9e00ff] transition-colors whitespace-nowrap">Brainstorm</span>
               </button>
               <button 
                 onClick={() => handleQuickAction("What did we discuss in our last conversation?")}
-                className="snap-center shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full py-2 px-4 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-[#9e00ff]/50 flex items-center gap-2 transition-all duration-200 ease-out scale-transition group"
+                className={`snap-center shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full py-2 px-4 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-[#9e00ff]/50 flex items-center gap-2 transition-all duration-200 ease-out group ${
+                  isAnimationsEnabled ? 'animate-button-bounce hover:animate-pulse-glow' : ''
+                }`}
+                style={isAnimationsEnabled ? { animationDelay: '0.3s' } : {}}
               >
                 <Clock size={16} className="group-hover:text-[#9e00ff] transition-colors" />
                 <span className="dark:text-gray-300 group-hover:text-[#9e00ff] transition-colors whitespace-nowrap">Chat history</span>
@@ -402,9 +422,10 @@ const AstroUI: React.FC<AstroUIProps> = ({ onSendMessage, messages, isLimitReach
 
           {/* Input Area */}
           <div className="border-t border-gray-200 dark:border-gray-700 p-2 md:p-4 bg-white dark:bg-gray-900">
-            <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-              <div className={`relative ${isLimitReached ? 'opacity-50 pointer-events-none' : ''}`}>
-                <div className="flex-1 border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-sm flex flex-col hover:border-[#9e00ff]/50 focus-within:border-[#9e00ff]/50 transition-colors relative">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-2">              <div className={`relative ${isLimitReached ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`flex-1 border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-sm flex flex-col hover:border-[#9e00ff]/50 focus-within:border-[#9e00ff]/50 transition-colors relative ${
+                  isAnimationsEnabled ? 'animate-float' : ''
+                }`}>
                   <div className="px-4 py-3">
                     <AutoResizeTextarea
                       value={userInput}
@@ -419,7 +440,9 @@ const AstroUI: React.FC<AstroUIProps> = ({ onSendMessage, messages, isLimitReach
                   {userInput.trim() !== '' && (
                     <button 
                       type="submit" 
-                      className="absolute right-2 bottom-2 text-[#9e00ff] hover:text-[#8300d4] p-2 rounded-lg transition-all duration-200 opacity-50 hover:opacity-100"
+                      className={`absolute right-2 bottom-2 text-[#9e00ff] hover:text-[#8300d4] p-2 rounded-lg transition-all duration-200 opacity-50 hover:opacity-100 ${
+                        isAnimationsEnabled ? 'animate-bounce-gentle' : ''
+                      }`}
                       aria-label="Send message"
                     >
                       <Send size={16} />
@@ -429,7 +452,9 @@ const AstroUI: React.FC<AstroUIProps> = ({ onSendMessage, messages, isLimitReach
                   <div className="border-t border-gray-200 dark:border-gray-700 flex items-center px-3 py-2">
                     <button 
                       type="button" 
-                      className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-400 p-1 rounded-md"
+                      className={`text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-400 p-1 rounded-md ${
+                        isAnimationsEnabled ? 'hover:animate-pulse-subtle' : ''
+                      }`}
                     >
                       <Mic size={16} />
                     </button>

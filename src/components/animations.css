@@ -1,77 +1,422 @@
-@keyframes messageSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+/* Enhanced Animation System with Settings Toggle */
+
+/* Base animation durations for different speeds */
+:root {
+  --animation-duration-instant: 0ms;
+  --animation-duration-fast: 150ms;
+  --animation-duration-normal: 300ms;
+  --animation-duration-slow: 500ms;
+  --animation-duration-slower: 800ms;
+  
+  --ease-spring: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.6, 0.32, 1.6);
+  --ease-expo: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+/* Animation speed modifiers */
+.animation-slow {
+  --animation-speed-multiplier: 1.5;
+}
+
+.animation-normal {
+  --animation-speed-multiplier: 1;
+}
+
+.animation-fast {
+  --animation-speed-multiplier: 0.7;
+}
+
+/* Disable animations when setting is off or user prefers reduced motion */
+.animations-disabled *,
+.animations-disabled *::before,
+.animations-disabled *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  to {
+}
+
+/* Enhanced Message Animations */
+@keyframes messageSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    filter: blur(2px);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateY(5px) scale(0.98);
+    filter: blur(1px);
+  }
+  100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes messageSlideOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+}
+
+@keyframes messageBounceIn {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.8);
+  }
+  60% {
+    opacity: 0.8;
+    transform: translateY(-5px) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
 .message-animation {
-  animation: messageSlideIn 0.3s ease-out forwards;
+  animation: messageSlideIn calc(var(--animation-duration-normal) * var(--animation-speed-multiplier, 1)) var(--ease-smooth) forwards;
 }
 
+.message-bounce-in {
+  animation: messageBounceIn calc(var(--animation-duration-slow) * var(--animation-speed-multiplier, 1)) var(--ease-bounce) forwards;
+}
+
+.message-slide-out {
+  animation: messageSlideOut calc(var(--animation-duration-fast) * var(--animation-speed-multiplier, 1)) var(--ease-smooth) forwards;
+}
+
+/* Enhanced Hover Transitions */
 .message-transition {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all calc(var(--animation-duration-normal) * var(--animation-speed-multiplier, 1)) var(--ease-smooth);
 }
 
-/* Smooth hover transition for message containers */
+.message-container {
+  transition: 
+    transform calc(var(--animation-duration-fast) * var(--animation-speed-multiplier, 1)) var(--ease-smooth),
+    box-shadow calc(var(--animation-duration-normal) * var(--animation-speed-multiplier, 1)) var(--ease-smooth),
+    background-color calc(var(--animation-duration-fast) * var(--animation-speed-multiplier, 1)) var(--ease-smooth);
+}
+
 .message-container:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 
+    0 8px 25px rgba(0, 0, 0, 0.12),
+    0 4px 12px rgba(99, 102, 241, 0.1);
 }
 
-/* Enhanced shooting star effect */
+/* Modal Animations */
+@keyframes modalBackdropFadeIn {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+@keyframes modalSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(50px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modalBounceIn {
+  0% {
+    opacity: 0;
+    transform: translateY(100px) scale(0.7);
+  }
+  60% {
+    opacity: 0.9;
+    transform: translateY(-10px) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: modalBackdropFadeIn calc(var(--animation-duration-normal) * var(--animation-speed-multiplier, 1)) var(--ease-smooth) forwards;
+}
+
+.animate-slide-in {
+  animation: modalSlideIn calc(var(--animation-duration-normal) * var(--animation-speed-multiplier, 1)) var(--ease-smooth) forwards;
+}
+
+.animate-bounce-in {
+  animation: modalBounceIn calc(var(--animation-duration-slow) * var(--animation-speed-multiplier, 1)) var(--ease-bounce) forwards;
+}
+
+/* Button Animations */
+@keyframes buttonPress {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes buttonPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(99, 102, 241, 0);
+  }
+}
+
+@keyframes buttonShine {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.button-enhanced {
+  position: relative;
+  transition: all calc(var(--animation-duration-fast) * var(--animation-speed-multiplier, 1)) var(--ease-smooth);
+  overflow: hidden;
+}
+
+.button-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left calc(var(--animation-duration-slow) * var(--animation-speed-multiplier, 1)) var(--ease-smooth);
+}
+
+.button-enhanced:hover::before {
+  left: 100%;
+}
+
+.button-enhanced:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.button-enhanced:active {
+  animation: buttonPress calc(var(--animation-duration-fast) * var(--animation-speed-multiplier, 1)) var(--ease-smooth);
+}
+
+.button-pulse {
+  animation: buttonPulse calc(var(--animation-duration-slower) * var(--animation-speed-multiplier, 1)) ease-in-out infinite;
+}
+
+/* Enhanced Loading Animations */
+@keyframes spinEnhanced {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bounceLoader {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes pulseWave {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.loading-spinner {
+  animation: spinEnhanced calc(var(--animation-duration-slower) * var(--animation-speed-multiplier, 1)) linear infinite;
+}
+
+.loading-bounce {
+  animation: bounceLoader calc(var(--animation-duration-slower) * var(--animation-speed-multiplier, 1)) ease-in-out infinite;
+}
+
+.loading-pulse {
+  animation: pulseWave calc(var(--animation-duration-slower) * var(--animation-speed-multiplier, 1)) ease-out infinite;
+}
+
+/* Typing Indicator Animation */
+@keyframes typingDot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
+
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: typingDot calc(var(--animation-duration-slower) * var(--animation-speed-multiplier, 1)) ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: calc(var(--animation-duration-fast) * var(--animation-speed-multiplier, 1));
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: calc(var(--animation-duration-normal) * var(--animation-speed-multiplier, 1));
+}
+
+/* Enhanced Space Background Effects */
 .shooting-star-enhanced {
   position: absolute;
   height: 2px;
   background: linear-gradient(90deg, rgba(255,255,255,0) 0%, #FFFFFF 50%, rgba(255,255,255,0) 100%);
-  animation: shoot-enhanced 6s linear infinite;
+  animation: shootEnhanced calc(var(--animation-duration-slower) * 2 * var(--animation-speed-multiplier, 1)) linear infinite;
   opacity: 0;
   z-index: 2;
 }
 
-@keyframes shoot-enhanced {
+@keyframes shootEnhanced {
   0% {
-    transform: translateX(0) translateY(0) rotate(0deg);
+    transform: translateX(-100px) translateY(-100px) rotate(45deg);
     width: 0;
     opacity: 0;
   }
-  1% {
+  2% {
     opacity: 1;
+    width: 0;
   }
   5% {
     width: 100px;
     opacity: 1;
   }
-  10% {
-    transform: translateX(300px) translateY(300px) rotate(45deg);
-    width: 0;
-    opacity: 0;
+  15% {
+    transform: translateX(400px) translateY(400px) rotate(45deg);
+    width: 200px;
+    opacity: 0.7;
   }
   100% {
-    transform: translateX(300px) translateY(300px) rotate(45deg);
+    transform: translateX(600px) translateY(600px) rotate(45deg);
     width: 0;
     opacity: 0;
   }
 }
 
-/* Version badge animation */
+/* Floating Animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  33% {
+    transform: translateY(-10px) rotate(1deg);
+  }
+  66% {
+    transform: translateY(5px) rotate(-1deg);
+  }
+}
+
+.float-animation {
+  animation: float calc(var(--animation-duration-slower) * 2 * var(--animation-speed-multiplier, 1)) ease-in-out infinite;
+}
+
+/* Stagger Animations */
+@keyframes staggerFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-animation {
+  animation: staggerFadeIn calc(var(--animation-duration-normal) * var(--animation-speed-multiplier, 1)) var(--ease-smooth) forwards;
+}
+
+.stagger-delay-1 { animation-delay: calc(100ms * var(--animation-speed-multiplier, 1)); }
+.stagger-delay-2 { animation-delay: calc(200ms * var(--animation-speed-multiplier, 1)); }
+.stagger-delay-3 { animation-delay: calc(300ms * var(--animation-speed-multiplier, 1)); }
+.stagger-delay-4 { animation-delay: calc(400ms * var(--animation-speed-multiplier, 1)); }
+.stagger-delay-5 { animation-delay: calc(500ms * var(--animation-speed-multiplier, 1)); }
+
+/* Enhanced Version Badge Animation */
 .version-badge-glow {
-  animation: version-badge-pulse 3s infinite alternate;
+  animation: versionBadgePulse calc(var(--animation-duration-slower) * 2 * var(--animation-speed-multiplier, 1)) ease-in-out infinite alternate;
 }
 
-@keyframes version-badge-pulse {
-  from {
+@keyframes versionBadgePulse {
+  0% {
     box-shadow: 0 0 0px rgba(99, 102, 241, 0);
+    transform: scale(1);
   }
-  to {
-    box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+  100% {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
+    transform: scale(1.05);
   }
 }
 
-/* Tooltip styles */
+/* Enhanced Tooltip Animations */
 .tooltip-container {
   position: relative;
 }
@@ -79,22 +424,147 @@
 .tooltip-text {
   visibility: hidden;
   position: absolute;
-  bottom: -25px;
+  bottom: -35px;
   left: 50%;
-  transform: translateX(-50%);
-  background-color: rgba(0, 0, 0, 0.8);
+  transform: translateX(-50%) translateY(10px) scale(0.8);
+  background-color: rgba(0, 0, 0, 0.9);
   color: white;
   text-align: center;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 8px 12px;
+  border-radius: 8px;
   font-size: 12px;
   white-space: nowrap;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: all calc(var(--animation-duration-normal) * var(--animation-speed-multiplier, 1)) var(--ease-bounce);
   z-index: 20;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tooltip-text::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 5px solid rgba(0, 0, 0, 0.9);
 }
 
 .tooltip-container:hover .tooltip-text {
   visibility: visible;
   opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+/* Enhanced Sidebar Animations */
+@keyframes slideInLeft {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutLeft {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+.sidebar-slide-in {
+  animation: slideInLeft calc(var(--animation-duration-normal) * var(--animation-speed-multiplier, 1)) var(--ease-spring) forwards;
+}
+
+.sidebar-slide-out {
+  animation: slideOutLeft calc(var(--animation-duration-normal) * var(--animation-speed-multiplier, 1)) var(--ease-smooth) forwards;
+}
+
+/* Enhanced Quick Action Animations */
+@keyframes quickActionGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(99, 102, 241, 0);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+  }
+}
+
+.quick-action-enhanced {
+  transition: all calc(var(--animation-duration-fast) * var(--animation-speed-multiplier, 1)) var(--ease-smooth);
+}
+
+.quick-action-enhanced:hover {
+  transform: translateY(-3px) scale(1.05);
+  animation: quickActionGlow calc(var(--animation-duration-slower) * var(--animation-speed-multiplier, 1)) ease-in-out infinite;
+}
+
+/* Canvas Animations */
+@keyframes canvasAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.9) rotateX(10deg);
+    filter: blur(4px);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateY(10px) scale(0.95) rotateX(5deg);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0deg);
+    filter: blur(0);
+  }
+}
+
+.canvas-appear {
+  animation: canvasAppear calc(var(--animation-duration-slow) * var(--animation-speed-multiplier, 1)) var(--ease-spring) forwards;
+}
+
+/* Accessibility: Respect user preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animations-enabled * {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Performance optimizations */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.animation-performance {
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Mode Change Indicator Animations */
+@keyframes slideDown {
+  from {
+    transform: translate(-50%, -100%);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-down {
+  animation: slideDown calc(var(--animation-duration-normal) * var(--animation-speed-multiplier, 1)) var(--ease-spring) forwards;
 }
