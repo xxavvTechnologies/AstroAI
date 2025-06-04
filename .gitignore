@@ -3,3 +3,4 @@ node_modules
 build
 .netlify
 .env.local
+.env.development
